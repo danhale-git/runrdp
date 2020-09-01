@@ -64,15 +64,15 @@ func initConfig() {
 		fmt.Println("Found config:", viper.ConfigFileUsed())
 	}
 
-	fmt.Println(viper.GetString("Test"))
+	fmt.Println("Test config string: ", viper.GetString("Test"))
 
 	config := loadDesktopConfig(home)
 
 	desktops.LoadDesktops(config)
 }
 
-func loadDesktopConfig(home string) desktops.Config {
-	var c desktops.Config
+func loadDesktopConfig(home string) []desktops.DesktopConfig {
+	var c struct{ Desktops []desktops.DesktopConfig }
 
 	desktopViper := viper.New()
 	desktopFile := viper.GetString("desktops")
@@ -94,28 +94,5 @@ func loadDesktopConfig(home string) desktops.Config {
 		log.Printf("invalid desktops config: %v", err)
 	}
 
-	return c
+	return c.Desktops
 }
-
-/*func loadDesktopConfig(home string) desktops.Config {
-	var c desktops.Config
-	desktopFile := viper.GetString("desktops")
-
-	if desktopFile == "" {
-		desktopFile = path.Join(home, ".desktops.yaml")
-	}
-
-	yamlFile, err := ioutil.ReadFile(desktopFile)
-	if err != nil {
-		log.Printf("error reading yaml file: %v", err)
-	}
-	err = yaml.Unmarshal(yamlFile, c)
-	if err != nil {
-		log.Fatalf("invalid desktops config: %v", err)
-	}
-
-	fmt.Println(string(yamlFile))
-	fmt.Println("Found desktops:", desktopFile)
-
-	return c
-}*/
