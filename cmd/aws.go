@@ -3,9 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path"
+
+	"github.com/danhale-git/runrdp/internal/rdp"
 
 	"github.com/danhale-git/runrdp/internal/aws"
-	"github.com/danhale-git/runrdp/internal/rdp"
+	homedir "github.com/mitchellh/go-homedir"
 
 	"github.com/spf13/viper"
 
@@ -28,45 +31,50 @@ var awsCmd = &cobra.Command{
 }
 
 func awsCmdRun(cmd *cobra.Command, args []string) {
-	// Create AWS API session
-	sess := aws.NewSession(
-		viper.GetString("profile"),
-		viper.GetString("region"),
-	)
-
-	// Get instance
-	instance, err := aws.InstanceFromID(sess, viper.GetString("ec2-id"))
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(0)
+	host := aws.EC2Host{
+		ID:          viper.GetString("ec2-id"),
+		Private:     viper.GetBool("private"),
+		Profile:     viper.GetString("profile"),
+		Region:      viper.GetString("region"),
+		AWSPassword: viper.GetBool("awspass"),
 	}
 
-	// Get instance password
-	password, err := aws.GetPassword(sess, viper.GetString("ec2-id"), "")
-	if err != nil {
-		fmt.Println(err)
+	var username, password string
+
+	if host.AWSPassword {
+		creds := aws.EC2GetPassword{EC2Host: &host}
+		username, password = creds.Retrieve()
+	} else {
+		fmt.Println("No credentials available!")
 		os.Exit(0)
+		// implement regular credentials method
 	}
 
-	user := "Administrator"
-	host := instance.PrivateIpAddress
-
-	rdp.Connect(*host, user, password)
+	rdp.Connect(host.Socket(), username, password)
 }
 
 func init() {
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	rootCmd.AddCommand(awsCmd)
 
-	awsCmd.Flags().StringP("profile", "p", "", "AWS Config profile name.")
-	awsCmd.MarkFlagRequired("profile")
+	awsCmd.Flags().StringP("profile", "p", "default", "AWS Config profile name.")
 
 	awsCmd.Flags().StringP("region", "r", "", "AWS region.")
-	awsCmd.MarkFlagRequired("region")
 
 	awsCmd.Flags().StringP("ec2-id", "i", "", "AWS EC2 instance ID.")
 	awsCmd.MarkFlagRequired("ec2-id")
 
-	err := viper.BindPFlags(awsCmd.Flags())
+	awsCmd.Flags().Bool("private", false, "Use private IP address.")
+	awsCmd.Flags().Bool("awspass", false, "Use private IP address.")
+
+	viper.SetDefault("SSHDirectory", path.Join(home, ".ssh"))
+
+	err = viper.BindPFlags(awsCmd.Flags())
 	if err != nil {
 		panic(err)
 	}

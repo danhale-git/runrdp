@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/danhale-git/runrdp/internal/desktops"
+	"github.com/danhale-git/runrdp/internal/rdp"
 
 	"github.com/spf13/cobra"
 
@@ -68,11 +68,11 @@ func initConfig() {
 
 	config := loadDesktopConfig(home)
 
-	desktops.LoadDesktops(config)
+	rdp.LoadDesktops(config)
 }
 
-func loadDesktopConfig(home string) []desktops.DesktopConfig {
-	var c struct{ Desktops []desktops.DesktopConfig }
+func loadDesktopConfig(home string) []rdp.DesktopConfig {
+	var c struct{ Desktops []rdp.DesktopConfig }
 
 	desktopViper := viper.New()
 	desktopFile := viper.GetString("desktops")
