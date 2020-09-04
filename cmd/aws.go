@@ -57,7 +57,7 @@ func init() {
 
 	rootCmd.AddCommand(awsCmd)
 
-	awsCmd.Flags().StringP("profile", "p", "default", "AWS Config profile name.")
+	awsCmd.Flags().String("profile", "default", "AWS Config profile name.")
 
 	awsCmd.Flags().StringP("region", "r", "", "AWS region.")
 

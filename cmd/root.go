@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 
 	"github.com/danhale-git/runrdp/internal/rdp"
@@ -21,15 +22,21 @@ var rootCmd = &cobra.Command{
 	Short: "TBD",
 	Long:  `TBD`,
 	Args: func(cmd *cobra.Command, args []string) error {
-		// validate arguments
+		cobra.RangeArgs(1, 1)
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		d, ok := desktops[args[0]]
+		arg := args[0]
+		d, ok := desktops[arg]
 		if ok {
 			username, password := d.Credentials.Retrieve()
 			rdp.Connect(d.Host.Socket(), username, password)
+		} else if host, err := net.LookupHost(arg); err == nil {
+			rdp.Connect(host[0], "", "")
 		}
+
+		fmt.Printf("'%s' is not a config entry, hostname or IP address", arg)
+		os.Exit(0)
 	},
 }
 
@@ -45,10 +52,13 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	rootCmd.PersistentFlags().StringP("username", "u", "", "Username to authenticate with")
+	rootCmd.PersistentFlags().StringP("password", "p", "", "Password to authenticate with")
+
 	rootCmd.PersistentFlags().StringP("config", "c", "", "config file (default is $HOME/.rdp.yaml)")
 	rootCmd.PersistentFlags().StringP("desktops", "d", "", "desktop file (default is $HOME/.rdp.desktops.yaml)")
 
-	if err := viper.BindPFlags(rootCmd.Flags()); err != nil {
+	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		panic(err)
 	}
 }

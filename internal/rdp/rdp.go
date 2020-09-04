@@ -7,12 +7,24 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/skratchdot/open-golang/open"
 )
 
 var path = "connection.rdp"
 
 func Connect(host, user, pass string) {
+	cmdlineUser := viper.GetString("username")
+	cmdlinePass := viper.GetString("password")
+	if cmdlineUser != "" {
+		user = cmdlineUser
+	}
+	if cmdlinePass != "" {
+		pass = cmdlinePass
+	}
+	fmt.Println("cmdline", cmdlineUser, cmdlinePass) //
+
 	createFile(host, user, pass)
 	runRDPFile(path)
 	// Ensure the file is deleted. Wait for 1 second before deleting it to allow the RDP application to read it.
@@ -21,21 +33,26 @@ func Connect(host, user, pass string) {
 }
 
 func createFile(host, user, pass string) {
-	enc, err := encrypt(pass)
-	if err != nil {
-		log.Fatalf("encrypt failed: %v", err)
-	}
-
 	body := fmt.Sprintf(
 		`auto connect:i:1
 		prompt for credentials:i:0
-		full address:s:%s
-		username:s:%s
-		password 51:b:%s`,
+		full address:s:%s`,
 		host,
-		user,
-		fmt.Sprintf("%x", enc),
 	)
+
+	if user != "" {
+		body += fmt.Sprintf("\nusername:s:%s", user)
+	}
+
+	if pass != "" {
+		enc, err := encrypt(pass)
+		if err != nil {
+			log.Fatalf("encrypt failed: %v", err)
+		}
+
+		body += fmt.Sprintf("\npassword 51:b:%s", fmt.Sprintf("%x", enc))
+	}
+
 	writeFile(body, path)
 }
 
