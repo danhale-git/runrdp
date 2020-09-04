@@ -32,23 +32,18 @@ var awsCmd = &cobra.Command{
 
 func awsCmdRun(cmd *cobra.Command, args []string) {
 	host := aws.EC2Host{
-		ID:          viper.GetString("ec2-id"),
-		Private:     viper.GetBool("private"),
-		Profile:     viper.GetString("profile"),
-		Region:      viper.GetString("region"),
-		AWSPassword: viper.GetBool("awspass"),
+		ID:      viper.GetString("ec2-id"),
+		Private: viper.GetBool("private"),
+		Profile: viper.GetString("profile"),
+		Region:  viper.GetString("region"),
 	}
 
-	var username, password string
-
-	if host.AWSPassword {
-		creds := aws.EC2GetPassword{EC2Host: &host}
-		username, password = creds.Retrieve()
-	} else {
-		fmt.Println("No credentials available!")
-		os.Exit(0)
-		// implement regular credentials method
+	var credentials rdp.Credentials
+	if viper.GetBool("awspass") {
+		credentials = aws.EC2GetPassword{EC2Host: &host}
 	}
+
+	username, password := credentials.Retrieve()
 
 	rdp.Connect(host.Socket(), username, password)
 }

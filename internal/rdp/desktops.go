@@ -1,6 +1,7 @@
 package rdp
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -10,16 +11,16 @@ import (
 type Desktops map[string]Desktop
 
 type DesktopConfig struct {
-	Name  string
-	Host  interface{}
-	Creds interface{}
+	Name        string
+	Host        interface{}
+	Credentials interface{}
 }
 
 type Desktop struct {
-	Name string
-	Host Host
-	//Creds Creds
-	Port int
+	Name        string
+	Host        Host
+	Credentials Credentials
+	Port        int
 }
 
 type Host interface {
@@ -48,13 +49,19 @@ func LoadDesktops(desktopConfigs []DesktopConfig) Desktops {
 
 		err := loadHost(&desktop, c.Host.(map[interface{}]interface{}))
 		if err != nil {
-			fmt.Printf("Failed to load host '%s': %s\n", c.Name, err)
+			fmt.Printf("Failed to load host for desktop '%s': %s\n", c.Name, err)
+			continue
+		}
+
+		err = loadCredential(&desktop, c.Credentials.(map[interface{}]interface{}))
+		if err != nil {
+			fmt.Printf("Failed to load credentials for desktop '%s': %s\n", c.Name, err)
 			continue
 		}
 
 		desktops[desktop.Name] = desktop
 
-		fmt.Printf("%+v\n", desktop)
+		//fmt.Printf("%+v\n", desktop)
 	}
 
 	return desktops
@@ -97,7 +104,48 @@ func loadHost(desktop *Desktop, data map[interface{}]interface{}) error {
 	return nil
 }
 
-func fields(values reflect.Value, numFields int, data map[interface{}]interface{}) error {
+func loadCredential(desktop *Desktop, data map[interface{}]interface{}) error {
+	switch data["Type"] {
+	case "AWSSecretsManager":
+		c := aws.SecretsManager{}
+		err := fields(
+			reflect.ValueOf(&c).Elem(),
+			reflect.ValueOf(c).NumField(),
+			data,
+			"Region",
+		)
+
+		if c.Region == "" {
+			ec2Host, ok := desktop.Host.(aws.EC2Host)
+			if ok {
+				c.Region = ec2Host.Region
+			} else {
+				return errors.New("no region provided for Secrets Manager credentials and host is not AWS")
+			}
+		}
+
+		if err != nil {
+			return err
+		}
+
+		desktop.Credentials = c
+
+	case "AWSPassword":
+		ec2Host, ok := desktop.Host.(aws.EC2Host)
+		if !ok {
+			return errors.New("credential is type AWSPassword but host is not AWS EC2")
+		}
+
+		desktop.Credentials = aws.EC2GetPassword{EC2Host: &ec2Host}
+
+	default:
+		return fmt.Errorf("unrecognised credentials type: %s", data["Type"])
+	}
+
+	return nil
+}
+
+func fields(values reflect.Value, numFields int, data map[interface{}]interface{}, optionalFields ...string) error {
 	types := values.Type()
 
 	for i := 0; i < numFields; i++ {
@@ -106,7 +154,20 @@ func fields(values reflect.Value, numFields int, data map[interface{}]interface{
 
 		d, ok := data[field.Name]
 		if !ok {
-			return fmt.Errorf("config key %s may be incorrect or missing", field.Name)
+			// Check if field name is optional
+			if func(field string) bool {
+				for _, optional := range optionalFields {
+					if field == optional {
+						return true
+					}
+				}
+
+				return false
+			}(field.Name) {
+				continue
+			} else {
+				return fmt.Errorf("config key %s may be incorrect or missing", field.Name)
+			}
 		}
 
 		switch field.Type.Name() {

@@ -13,12 +13,24 @@ import (
 	"github.com/spf13/viper"
 )
 
+var desktops rdp.Desktops
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "rdp",
 	Short: "TBD",
 	Long:  `TBD`,
-	Run:   func(cmd *cobra.Command, args []string) {},
+	Args: func(cmd *cobra.Command, args []string) error {
+		// validate arguments
+		return nil
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		d, ok := desktops[args[0]]
+		if ok {
+			username, password := d.Credentials.Retrieve()
+			rdp.Connect(d.Host.Socket(), username, password)
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -68,7 +80,7 @@ func initConfig() {
 
 	config := loadDesktopConfig(home)
 
-	rdp.LoadDesktops(config)
+	desktops = rdp.LoadDesktops(config)
 }
 
 func loadDesktopConfig(home string) []rdp.DesktopConfig {

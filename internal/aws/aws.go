@@ -19,11 +19,10 @@ import (
 )
 
 type EC2Host struct {
-	Private     bool
-	AWSPassword bool
-	ID          string
-	Profile     string
-	Region      string
+	Private bool
+	ID      string
+	Profile string
+	Region  string
 	//Port    int
 }
 
@@ -32,7 +31,8 @@ func (h EC2Host) Socket() string {
 	instance, err := instanceFromID(session, h.ID)
 
 	if err != nil {
-		fmt.Printf("error querying aws for ec2 instance: %s", err)
+		fmt.Printf("Error Getting EC2 instance: %s ", err)
+		os.Exit(1)
 	}
 
 	if h.Private {
