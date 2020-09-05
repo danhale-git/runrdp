@@ -23,7 +23,6 @@ func Connect(host, user, pass string) {
 	if cmdlinePass != "" {
 		pass = cmdlinePass
 	}
-	fmt.Println("cmdline", cmdlineUser, cmdlinePass) //
 
 	createFile(host, user, pass)
 	runRDPFile(path)

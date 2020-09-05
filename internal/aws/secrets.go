@@ -16,14 +16,13 @@ import (
 )
 
 type SecretsManager struct {
-	Type        string
-	UsernameKey string
-	PasswordKey string
-	Region      string
+	Username string
+	Password string
+	Region   string
 }
 
 func (s SecretsManager) Retrieve() (string, string) {
-	return s.getSecret(s.UsernameKey), s.getSecret(s.PasswordKey)
+	return s.getSecret(s.Username), s.getSecret(s.Password)
 }
 
 func (s SecretsManager) getSecret(secretKey string) string {
