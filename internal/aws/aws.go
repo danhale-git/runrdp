@@ -10,6 +10,8 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 
@@ -27,8 +29,8 @@ type EC2Host struct {
 }
 
 func (h EC2Host) Socket() string {
-	session := newSession(h.Profile, h.Region)
-	instance, err := instanceFromID(session, h.ID)
+	sess := newSession(h.Profile, h.Region)
+	instance, err := instanceFromID(sess, h.ID)
 
 	if err != nil {
 		fmt.Printf("Error Getting EC2 instance: %s ", err)
@@ -52,7 +54,7 @@ func (p EC2GetPassword) Retrieve() (username, password string) {
 		p.Profile,
 		p.Region,
 		p.ID,
-		viper.GetString("SSHDirectory"),
+		viper.GetString("ssh-directory"),
 	)
 	if err != nil {
 		fmt.Println("Error retrieving EC2 Administrator password: ", err)
@@ -100,7 +102,7 @@ func getPassword(profile, region, instanceID, sshDirectory string) (string, erro
 	instance, err := instanceFromID(sess, instanceID)
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get instance from id: %s", err)
 	}
 
 	svc := ec2.New(sess)
@@ -109,20 +111,55 @@ func getPassword(profile, region, instanceID, sshDirectory string) (string, erro
 	output, err := svc.GetPasswordData(&input)
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get instance password: %s", err)
 	}
 
 	decodedPasswordData, err := base64.StdEncoding.DecodeString(*output.PasswordData)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("decode password data: %s", err)
 	}
 
-	b, err := rsaDecrypt(decodedPasswordData, path.Join(sshDirectory, *instance.KeyName))
+	// Read the private key
+	privateKey, err := ioutil.ReadFile(path.Join(sshDirectory, *instance.KeyName))
 	if err != nil {
-		return "", err
+		// Try ignoring the extension
+		for _, d := range fileNames(sshDirectory) {
+			noExt := d[:len(d)-len(filepath.Ext(d))]
+			if noExt == *instance.KeyName {
+				privateKey, err = ioutil.ReadFile(path.Join(sshDirectory, d))
+				if err != nil {
+					return "", fmt.Errorf("read key file: %s", err)
+				}
+			}
+		}
+	}
+
+	b, err := rsaDecrypt(decodedPasswordData, privateKey)
+	if err != nil {
+		return "", fmt.Errorf("decrypt password: %s", err)
 	}
 
 	return string(b), nil
+}
+
+func fileNames(directory string) []string {
+	files, err := ioutil.ReadDir(directory)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	names := make([]string, 0)
+
+	for _, f := range files {
+		n := f.Name()
+		if strings.TrimSpace(n) == "" {
+			continue
+		}
+
+		names = append(names, n)
+	}
+
+	return names
 }
 
 func getInstances(sess *session.Session) ([]ec2.Instance, error) {
@@ -144,21 +181,15 @@ func getInstances(sess *session.Session) ([]ec2.Instance, error) {
 	return instances, nil
 }
 
-func rsaDecrypt(ciphertext []byte, keyFile string) ([]byte, error) {
-	// Read the private key
-	privateKey, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		log.Fatalf("read key file: %s", err)
-	}
-
+func rsaDecrypt(toDecrypt, privateKey []byte) ([]byte, error) {
 	// Extract the PEM-encoded data block
 	block, _ := pem.Decode(privateKey)
 	if block == nil {
-		log.Fatalf("bad key data: %s", "not PEM-encoded")
+		return nil, fmt.Errorf("bad key data: %s", "not PEM-encoded")
 	}
 
 	if got, want := block.Type, "RSA PRIVATE KEY"; got != want {
-		log.Fatalf("unknown key type %q, want %q", got, want)
+		return nil, fmt.Errorf("unknown key type %q, want %q", got, want)
 	}
 
 	// Parse the private key
@@ -167,5 +198,5 @@ func rsaDecrypt(ciphertext []byte, keyFile string) ([]byte, error) {
 		return nil, fmt.Errorf("parse private key: %s", err)
 	}
 
-	return rsa.DecryptPKCS1v15(nil, priv, ciphertext)
+	return rsa.DecryptPKCS1v15(nil, priv, toDecrypt)
 }

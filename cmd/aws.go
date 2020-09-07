@@ -25,7 +25,7 @@ var awsCmd = &cobra.Command{
 	Run:   awsCmdRun,
 }
 
-func awsCmdRun(cmd *cobra.Command, args []string) {
+func awsCmdRun(_ *cobra.Command, _ []string) {
 	host := aws.EC2Host{
 		ID:      viper.GetString("ec2-id"),
 		Private: viper.GetBool("private"),
@@ -34,11 +34,11 @@ func awsCmdRun(cmd *cobra.Command, args []string) {
 	}
 
 	var credentials configure.Credentials
+	username, password := "", ""
 	if viper.GetBool("awspass") {
 		credentials = aws.EC2GetPassword{EC2Host: &host}
+		username, password = credentials.Retrieve()
 	}
-
-	username, password := credentials.Retrieve()
 
 	rdp.Connect(host.Socket(), username, password)
 }
@@ -57,12 +57,12 @@ func init() {
 	awsCmd.Flags().StringP("region", "r", "", "AWS region.")
 
 	awsCmd.Flags().StringP("ec2-id", "i", "", "AWS EC2 instance ID.")
-	awsCmd.MarkFlagRequired("ec2-id")
+	_ = awsCmd.MarkFlagRequired("ec2-id")
 
 	awsCmd.Flags().Bool("private", false, "Use private IP address.")
 	awsCmd.Flags().Bool("awspass", false, "Use private IP address.")
 
-	viper.SetDefault("SSHDirectory", path.Join(home, ".ssh"))
+	awsCmd.Flags().String("ssh-directory", path.Join(home, ".ssh"), "Directory containing SSH keys.")
 
 	err = viper.BindPFlags(awsCmd.Flags())
 	if err != nil {
