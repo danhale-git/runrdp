@@ -5,6 +5,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/danhale-git/runrdp/internal/configure"
+
 	"github.com/danhale-git/runrdp/internal/rdp"
 
 	"github.com/danhale-git/runrdp/internal/aws"
@@ -14,13 +16,6 @@ import (
 
 	"github.com/spf13/cobra"
 )
-
-// Session from shared creds: https://github.com/aws/aws-sdk-go/blob/v1.34.9/aws/session/session.go#L277
-//https://docs.aws.amazon.com/sdk-for-go/api/aws/session/#Options
-
-// Run gimme creds ad hoc https://golang.org/pkg/os/exec/#Cmd.Wait
-
-// Get key name from instance: ec2.Instance.KeyName
 
 // awsCmd represents the aws command
 var awsCmd = &cobra.Command{
@@ -38,7 +33,7 @@ func awsCmdRun(cmd *cobra.Command, args []string) {
 		Region:  viper.GetString("region"),
 	}
 
-	var credentials rdp.Credentials
+	var credentials configure.Credentials
 	if viper.GetBool("awspass") {
 		credentials = aws.EC2GetPassword{EC2Host: &host}
 	}
