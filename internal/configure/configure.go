@@ -3,8 +3,16 @@ package configure
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/spf13/viper"
+)
+
+const (
+	DefaultConfigName = "config"
 )
 
 func CheckExistence(path, description string, dir bool) bool {
@@ -36,6 +44,42 @@ func CheckExistence(path, description string, dir bool) bool {
 	}
 	// Item already exists
 	return true
+}
+
+func configFileNames() []string {
+	files, err := ioutil.ReadDir(viper.GetString("config-root"))
+	if err != nil {
+		return []string{}
+	}
+
+	names := make([]string, 0)
+
+	for _, f := range files {
+		n := f.Name()
+		if strings.TrimSpace(n) == "" {
+			continue
+		}
+
+		names = append(names, n)
+	}
+
+	return names
+}
+
+func loadFile(name string) *viper.Viper {
+	newViper := viper.New()
+
+	newViper.SetConfigType("toml")
+	newViper.SetConfigFile(filepath.Join(
+		viper.GetString("config-root"),
+		name,
+	))
+
+	if err := newViper.ReadInConfig(); err != nil {
+		fmt.Printf("failed to load %s config: %v\n", name, err)
+	}
+
+	return newViper
 }
 
 func interactiveString(lower bool) (string, bool) {

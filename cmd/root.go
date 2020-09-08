@@ -93,13 +93,13 @@ func initConfig() {
 
 func loadMainConfig() {
 	root := viper.GetString("config-root")
-	filePath := viper.GetString("config")
+	filePath := viper.GetString(configure.DefaultConfigName)
 
 	if filePath != "" {
 		viper.SetConfigFile(filePath)
 	} else {
 		viper.AddConfigPath(root)
-		viper.SetConfigName("config")
+		viper.SetConfigName(configure.DefaultConfigName)
 	}
 
 	viper.SetConfigType("toml")
@@ -108,7 +108,6 @@ func loadMainConfig() {
 		"config",
 	))
 
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Found config:", viper.ConfigFileUsed())
-	}
+	// No default config is required so do nothing if it isn't found
+	_ = viper.ReadInConfig()
 }

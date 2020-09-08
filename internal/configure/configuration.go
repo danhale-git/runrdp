@@ -2,10 +2,6 @@ package configure
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -44,44 +40,6 @@ func (c *Configuration) loadDesktopConfigs() {
 		c.getConfig("cred"),
 		c.getConfig("host"),
 	)
-}
-
-func configFileNames() []string {
-	files, err := ioutil.ReadDir(viper.GetString("config-root"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	names := make([]string, 0)
-
-	for _, f := range files {
-		n := f.Name()
-		if strings.TrimSpace(n) == "" {
-			continue
-		}
-
-		names = append(names, n)
-	}
-
-	return names
-}
-
-func loadFile(name string) *viper.Viper {
-	newViper := viper.New()
-
-	newViper.SetConfigType("toml")
-	newViper.SetConfigFile(filepath.Join(
-		viper.GetString("config-root"),
-		name,
-	))
-
-	if err := newViper.ReadInConfig(); err == nil {
-		fmt.Printf("%s config loaded from %s\n", name, newViper.ConfigFileUsed())
-	} else {
-		fmt.Printf("failed to load %s config: %v\n", name, err)
-	}
-
-	return newViper
 }
 
 func (c *Configuration) getConfig(key string) map[string]map[string]interface{} {
