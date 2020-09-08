@@ -35,7 +35,7 @@ var configureCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check config directory exists
-		if !checkDirectory() {
+		if !checkDefaultConfig() {
 			return
 		}
 
@@ -98,11 +98,20 @@ var configureCmd = &cobra.Command{
 	},
 }
 
-func checkDirectory() bool {
-	return configure.CheckExistence(
-		viper.GetString("config-root"),
+func checkDefaultConfig() bool {
+	configRoot := viper.GetString("config-root")
+	if !configure.CheckExistence(
+		configRoot,
 		"config directory",
 		true,
+	) {
+		return false
+	}
+
+	return configure.CheckExistence(
+		filepath.Join(configRoot, configure.DefaultConfigName),
+		"default config file",
+		false,
 	)
 }
 

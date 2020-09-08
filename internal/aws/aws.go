@@ -8,66 +8,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/spf13/viper"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-type EC2Host struct {
-	Private bool
-	ID      string
-	Profile string
-	Region  string
-	//Port    int
-}
-
-func (h EC2Host) Socket() string {
-	sess := newSession(h.Profile, h.Region)
-	instance, err := instanceFromID(sess, h.ID)
-
-	if err != nil {
-		fmt.Printf("Error Getting EC2 instance: %s ", err)
-		os.Exit(1)
-	}
-
-	if h.Private {
-		return *instance.PrivateIpAddress
-	}
-
-	return *instance.PublicIpAddress // :<port>
-}
-
-type EC2GetPassword struct {
-	*EC2Host
-}
-
-func (p EC2GetPassword) Retrieve() (username, password string) {
-	// Get instance password
-	password, err := getPassword(
-		p.Profile,
-		p.Region,
-		p.ID,
-		viper.GetString("ssh-directory"),
-	)
-	if err != nil {
-		fmt.Println("Error retrieving EC2 Administrator password: ", err)
-		os.Exit(1)
-	}
-
-	username = "Administrator"
-
-	return
-}
-
 // Creates and validates a new AWS session. If region is an empty string, .aws/config region settings will be used.
-func newSession(profile, region string) *session.Session {
+func NewSession(profile, region string) *session.Session {
 	opts := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 		Profile:           profile,
@@ -81,7 +32,7 @@ func newSession(profile, region string) *session.Session {
 	return sess
 }
 
-func instanceFromID(sess *session.Session, id string) (*ec2.Instance, error) {
+func InstanceFromID(sess *session.Session, id string) (*ec2.Instance, error) {
 	instances, err := getInstances(sess)
 
 	if err != nil {
@@ -97,9 +48,9 @@ func instanceFromID(sess *session.Session, id string) (*ec2.Instance, error) {
 	return nil, fmt.Errorf("instance with ID %s was not found", id)
 }
 
-func getPassword(profile, region, instanceID, sshDirectory string) (string, error) {
-	sess := newSession(profile, region)
-	instance, err := instanceFromID(sess, instanceID)
+func GetPassword(profile, region, instanceID, sshDirectory string) (string, error) {
+	sess := NewSession(profile, region)
+	instance, err := InstanceFromID(sess, instanceID)
 
 	if err != nil {
 		return "", fmt.Errorf("get instance from id: %s", err)
