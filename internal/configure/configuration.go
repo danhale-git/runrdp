@@ -15,26 +15,18 @@ import (
 type Configuration struct {
 	Files map[string]*viper.Viper
 	Hosts map[string]Host
-	Creds map[string]Cred
+	creds map[string]Cred
 }
 
 // Host can return a hostname or IP address and optionally a port and credential name to use.
 type Host interface {
 	Socket() string
+	Credentials() Cred
 }
 
 // Cred can return valid credentials used to authenticate and RDP session.
 type Cred interface {
 	Retrieve() (string, string)
-}
-
-type IPHost struct {
-	Address string
-	//port    int
-}
-
-func (h IPHost) Socket() string {
-	return h.Address // :<port>
 }
 
 func (c *Configuration) Get(key string) (interface{}, error) {
@@ -50,7 +42,7 @@ func (c *Configuration) Get(key string) (interface{}, error) {
 func (c *Configuration) ReadLocalConfigFiles() {
 	c.Files = make(map[string]*viper.Viper)
 	c.Hosts = make(map[string]Host)
-	c.Creds = make(map[string]Cred)
+	c.creds = make(map[string]Cred)
 
 	c.readConfigFiles()
 	c.loadConfigData()
@@ -65,8 +57,8 @@ func (c *Configuration) readConfigFiles() {
 
 // loadConfigData loads all configurations from Viper.
 func (c *Configuration) loadConfigData() {
-	c.Hosts = loadHosts(c.getConfig("host"))
-	c.Creds = loadCredentials(c.getConfig("cred"))
+	c.creds = c.loadCredentials(c.getConfig("cred"))
+	c.Hosts = c.loadHosts(c.getConfig("host"))
 }
 
 // getConfig returns the all configurations under the given key, from all config files.
@@ -88,35 +80,7 @@ func (c *Configuration) getConfig(key string) map[string]map[string]interface{} 
 	return allConfigs
 }
 
-func loadHosts(hostsConfig map[string]map[string]interface{}) map[string]Host {
-	hosts := make(map[string]Host)
-
-	for key, data := range hostsConfig["ip"] {
-		h, err := ipHost(data.(map[string]interface{}))
-
-		if err != nil {
-			fmt.Printf("Failed to load host '%s': %s\n", key, err)
-			continue
-		}
-
-		hosts[key] = h
-	}
-
-	for key, data := range hostsConfig["awsec2"] {
-		h, err := awsEC2Host(data.(map[string]interface{}))
-
-		if err != nil {
-			fmt.Printf("Failed to load host '%s': %s\n", key, err)
-			continue
-		}
-
-		hosts[key] = h
-	}
-
-	return hosts
-}
-
-func loadCredentials(credentialsConfig map[string]map[string]interface{}) map[string]Cred {
+func (c *Configuration) loadCredentials(credentialsConfig map[string]map[string]interface{}) map[string]Cred {
 	creds := make(map[string]Cred)
 
 	for key, data := range credentialsConfig["awssm"] {
@@ -131,6 +95,60 @@ func loadCredentials(credentialsConfig map[string]map[string]interface{}) map[st
 	}
 
 	return creds
+}
+
+func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{}) map[string]Host {
+	hosts := make(map[string]Host)
+
+	for key, data := range hostsConfig["ip"] {
+		h, err := ipHost(data.(map[string]interface{}))
+
+		if err != nil {
+			fmt.Printf("Failed to load host '%s': %s\n", key, err)
+			continue
+		}
+
+		h.Cred, err = c.getCred(data.(map[string]interface{}))
+
+		if err != nil {
+			fmt.Printf("Host '%s': ", key, err)
+		}
+
+		hosts[key] = h
+	}
+
+	for key, data := range hostsConfig["awsec2"] {
+		h, err := awsEC2Host(data.(map[string]interface{}))
+
+		if err != nil {
+			fmt.Printf("Failed to load host '%s': %s\n", key, err)
+			continue
+		}
+
+		h.Cred, err = c.getCred(data.(map[string]interface{}))
+
+		if err != nil {
+			fmt.Printf("Host '%s': ", key, err)
+		}
+
+		hosts[key] = h
+	}
+
+	return hosts
+}
+
+func (c *Configuration) getCred(data map[string]interface{}) (Cred, error) {
+	cKey, ok := data["cred"]
+	if !ok {
+		return nil, nil
+	}
+
+	cred, ok := c.creds[cKey.(string)]
+	if !ok {
+		return nil, fmt.Errorf("credentials %s not found", cKey)
+	}
+
+	return cred, nil
 }
 
 func secretsManager(data map[string]interface{}) (aws.SecretsManager, error) {
@@ -155,8 +173,8 @@ func ipHost(data map[string]interface{}) (IPHost, error) {
 	return h, err
 }
 
-func awsEC2Host(data map[string]interface{}) (aws.EC2Host, error) {
-	h := aws.EC2Host{}
+func awsEC2Host(data map[string]interface{}) (EC2Host, error) {
+	h := EC2Host{}
 	err := setFields(
 		reflect.ValueOf(&h).Elem(),
 		reflect.ValueOf(h).NumField(),
@@ -168,41 +186,53 @@ func awsEC2Host(data map[string]interface{}) (aws.EC2Host, error) {
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
 // will be left empty in the struct.
-func setFields(values reflect.Value, numFields int, data map[string]interface{} /*, optionalFields ...string*/) error {
-	types := values.Type()
+func setFields(values reflect.Value, numFields int, data map[string]interface{}) error {
+	structType := values.Type()
+
+	fieldMap := make(map[string]reflect.StructField)
+	valueMap := make(map[string]reflect.Value)
 
 	for i := 0; i < numFields; i++ {
-		field := types.Field(i)
-		value := values.Field(i)
-		fieldName := strings.ToLower(field.Name)
+		f := structType.Field(i)
+		v := values.Field(i)
+		fieldName := strings.ToLower(f.Name)
 
-		d, exists := data[fieldName]
-		if !exists {
-			return fmt.Errorf("config key %s may be incorrect or missing", fieldName)
+		fieldMap[fieldName] = f
+		valueMap[fieldName] = v
+	}
+
+	for k, v := range data {
+		if k == "cred" {
+			continue
 		}
 
-		switch field.Type.Name() {
+		_, ok := fieldMap[k]
+		if !ok {
+			return fmt.Errorf("config key %s is invalid for type %s", k, structType.Name())
+		}
+
+		switch fieldMap[k].Type.Name() {
 		case "bool":
-			dt, ok := d.(bool)
+			dt, ok := v.(bool)
 			if !ok {
 				return ConfigFieldLoadError{
 					ConfigName: "host",
-					FieldName:  fieldName,
+					FieldName:  k,
 					Message:    "expected value of type bool"}
 			}
 
-			value.SetBool(dt)
+			valueMap[k].SetBool(dt)
 
 		case "string":
-			dt, ok := d.(string)
+			dt, ok := v.(string)
 			if !ok {
 				return ConfigFieldLoadError{
 					ConfigName: "host",
-					FieldName:  fieldName,
+					FieldName:  k,
 					Message:    "expected value of type string"}
 			}
 
-			value.SetString(dt)
+			valueMap[k].SetString(dt)
 		}
 	}
 
