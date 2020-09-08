@@ -32,10 +32,12 @@ var rootCmd = &cobra.Command{
 		if ok {
 			var username, password string
 
-			cred := host.Credentials()
-
-			if cred != nil {
+			if cred := host.Credentials(); cred != nil {
 				username, password = cred.Retrieve()
+			} else if cred = config.Creds[arg]; cred != nil {
+				username, password = cred.Retrieve()
+			} else {
+				username, password = "", ""
 			}
 
 			rdp.Connect(host.Socket(), username, password)

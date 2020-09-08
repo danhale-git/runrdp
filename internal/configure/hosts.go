@@ -9,7 +9,6 @@ import (
 
 type IPHost struct {
 	Address string
-	Cred    Cred
 	//port    int
 }
 
@@ -18,7 +17,7 @@ func (h IPHost) Socket() string {
 }
 
 func (h IPHost) Credentials() Cred {
-	return h.Cred
+	return nil
 }
 
 type EC2Host struct {
@@ -27,7 +26,6 @@ type EC2Host struct {
 	ID      string
 	Profile string
 	Region  string
-	Cred    Cred
 	//Port    int
 }
 
@@ -52,5 +50,5 @@ func (h EC2Host) Credentials() Cred {
 		return EC2GetPassword{Host: &h}
 	}
 
-	return h.Cred
+	return nil
 }
