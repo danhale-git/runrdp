@@ -66,7 +66,7 @@ func configFileNames() []string {
 	return names
 }
 
-func loadFile(name string) *viper.Viper {
+func readFile(name string) *viper.Viper {
 	newViper := viper.New()
 
 	newViper.SetConfigType("toml")

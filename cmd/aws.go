@@ -33,7 +33,7 @@ func awsCmdRun(_ *cobra.Command, _ []string) {
 		Region:  viper.GetString("region"),
 	}
 
-	var credentials configure.Credentials
+	var credentials configure.Cred
 	username, password := "", ""
 	if viper.GetBool("awspass") {
 		credentials = aws.EC2GetPassword{EC2Host: &host}

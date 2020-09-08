@@ -28,10 +28,10 @@ var rootCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		arg := args[0]
-		d, ok := config.Desktops[arg]
+		host, ok := config.Hosts[arg]
 		if ok {
-			username, password := d.Credentials.Retrieve()
-			rdp.Connect(d.Host.Socket(), username, password)
+			username, password := "", "" //host.Cred.Retrieve()
+			rdp.Connect(host.Socket(), username, password)
 		} else if host, err := net.LookupHost(arg); err == nil {
 			rdp.Connect(host[0], "", "")
 		} else {
