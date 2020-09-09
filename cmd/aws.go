@@ -34,14 +34,25 @@ func awsCmdRun(_ *cobra.Command, _ []string) {
 
 	var credentials config.Cred
 
-	username, password := "", ""
+	var username, password string
 
-	if viper.GetBool("awspass") {
+	var err error
+
+	if viper.GetBool("getpass") {
 		credentials = config.EC2GetPassword{Host: &host}
-		username, password = credentials.Retrieve()
+		username, password, err = credentials.Retrieve()
+
+		if err != nil {
+			fmt.Printf("Error retrieving credentials: %s\n", err)
+		}
 	}
 
-	rdp.Connect(host.Socket(), username, password)
+	socket, err := host.Socket()
+	if err == nil {
+		rdp.Connect(socket, username, password)
+	} else {
+		fmt.Printf("Error retrieving host address: %s\n", err)
+	}
 }
 
 func init() {
@@ -61,7 +72,7 @@ func init() {
 	_ = awsCmd.MarkFlagRequired("ec2-id")
 
 	awsCmd.Flags().Bool("private", false, "Use private IP address.")
-	awsCmd.Flags().Bool("awspass", false, "Use private IP address.")
+	awsCmd.Flags().Bool("getpass", false, "Use private IP address.")
 
 	awsCmd.Flags().String("ssh-directory", path.Join(home, ".ssh"), "Directory containing SSH keys.")
 

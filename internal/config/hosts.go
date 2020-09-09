@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"os"
+	"net"
 
 	"github.com/danhale-git/runrdp/internal/aws"
 )
@@ -14,8 +14,12 @@ type IPHost struct {
 }
 
 // Socket returns this host's IP or hostname.
-func (h IPHost) Socket() string {
-	return h.Address // :<port>
+func (h IPHost) Socket() (string, error) {
+	_, err := net.LookupHost(h.Address)
+	if err != nil {
+		return "", fmt.Errorf("address %s is not a valid hostname or ip: %s", h.Address, err)
+	}
+	return h.Address, nil // :<port>
 }
 
 // Credentials returns nil as this type has no special credentials object.
@@ -34,20 +38,19 @@ type EC2Host struct {
 }
 
 // Socket returns the public or private IP address of this instance based on the value of the Private field.
-func (h EC2Host) Socket() string {
+func (h EC2Host) Socket() (string, error) {
 	sess := aws.NewSession(h.Profile, h.Region)
 	instance, err := aws.InstanceFromID(sess, h.ID)
 
 	if err != nil {
-		fmt.Printf("Error Getting EC2 instance: %s ", err)
-		os.Exit(1)
+		return "", fmt.Errorf("getting ec2 instance: %s", err)
 	}
 
 	if h.Private {
-		return *instance.PrivateIpAddress
+		return *instance.PrivateIpAddress, nil
 	}
 
-	return *instance.PublicIpAddress // :<port>
+	return *instance.PublicIpAddress, nil // :<port>
 }
 
 // Credentials returns the special credentials type EC2GetPassword if the GetCred field is true, or nil if it is not.

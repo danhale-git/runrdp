@@ -15,21 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
-type SecretsManager struct {
-	Username string
-	Password string
-	Region   string
-}
-
-func (s SecretsManager) Retrieve() (string, string) {
-	return s.getSecret(s.Username), s.getSecret(s.Password)
-}
-
-func (s SecretsManager) getSecret(secretKey string) string {
+// GetSecret retrieves the secret with the given key from AWS Secrets Manager.
+func GetSecret(region, secretKey string) (string, error) {
 
 	//Create a Secrets Manager client
 	svc := secretsmanager.New(session.New(),
-		aws.NewConfig().WithRegion(s.Region))
+		aws.NewConfig().WithRegion(region))
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secretKey),
 		VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
@@ -62,12 +53,11 @@ func (s SecretsManager) getSecret(secretKey string) string {
 				// We can't find the resource that you asked for.
 				fmt.Println(secretsmanager.ErrCodeResourceNotFoundException, aerr.Error())
 			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			fmt.Println("Error retrieving credentials from AWS Secrets Manager: ", err.Error())
+
+			return "", fmt.Errorf("getting secret from secrets manager: %s", aerr)
 		}
-		return ""
+
+		return "", fmt.Errorf("getting secret from secrets manager: %s", err)
 	}
 
 	// Decrypts secret using the associated KMS CMK.
@@ -79,17 +69,17 @@ func (s SecretsManager) getSecret(secretKey string) string {
 		decodedBinarySecretBytes := make([]byte, base64.StdEncoding.DecodedLen(len(result.SecretBinary)))
 		_, err := base64.StdEncoding.Decode(decodedBinarySecretBytes, result.SecretBinary)
 		if err != nil {
-			fmt.Println("Base64 Decode Error:", err)
-			return ""
+			return "", fmt.Errorf("base 64 decoding secret: %s", err)
 		}
 		//decodedBinarySecret = string(decodedBinarySecretBytes[:len])
 	}
 
 	var secret interface{}
 	err = json.Unmarshal([]byte(secretString), &secret)
+
 	if err != nil {
-		fmt.Println("Error decoding Secrets Manager credentials: ", err)
+		return "", fmt.Errorf("json decoding secret: %s", err)
 	}
 
-	return secret.(map[string]interface{})[secretKey].(string)
+	return secret.(map[string]interface{})[secretKey].(string), nil
 }

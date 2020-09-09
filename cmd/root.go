@@ -31,19 +31,29 @@ var rootCmd = &cobra.Command{
 		host, ok := configuration.Hosts[arg]
 		if ok {
 			var username, password string
+			var err error
 
 			if cred := host.Credentials(); cred != nil {
-				username, password = cred.Retrieve()
+				username, password, err = cred.Retrieve()
 			} else if cred = configuration.Creds[arg]; cred != nil {
-				username, password = cred.Retrieve()
+				username, password, err = cred.Retrieve()
 			} else {
 				username, password = "", ""
 			}
 
-			rdp.Connect(host.Socket(), username, password)
+			if err != nil {
+				fmt.Printf("Error retrieving credentials: %s\n", err)
+			}
 
-		} else if host, err := net.LookupHost(arg); err == nil {
-			rdp.Connect(host[0], "", "")
+			socket, err := host.Socket()
+			if err == nil {
+				rdp.Connect(socket, username, password)
+			} else {
+				fmt.Printf("Error retrieving host address: %s\n", err)
+			}
+
+		} else if h, err := net.LookupHost(arg); err == nil {
+			rdp.Connect(h[0], "", "")
 		} else {
 			fmt.Printf("'%s' is not a config entry, hostname or IP address\n", arg)
 		}

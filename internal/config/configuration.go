@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/danhale-git/runrdp/internal/aws"
-
 	"github.com/spf13/viper"
 )
 
@@ -21,13 +19,13 @@ type Configuration struct {
 
 // Host can return a hostname or IP address and optionally a port and credential name to use.
 type Host interface {
-	Socket() string
+	Socket() (string, error)
 	Credentials() Cred
 }
 
 // Cred can return valid credentials used to authenticate and RDP session.
 type Cred interface {
-	Retrieve() (string, string)
+	Retrieve() (string, string, error)
 }
 
 // Get searches data from all config files and returns the value of the given key if it exists or an error if it
@@ -145,7 +143,7 @@ func (c *Configuration) getHostCred(data map[string]interface{}) Cred {
 }
 
 func secretsManager(data map[string]interface{}) (Cred, error) {
-	c := aws.SecretsManager{}
+	c := SecretsManager{}
 	err := setFields(
 		reflect.ValueOf(&c).Elem(),
 		reflect.ValueOf(c).NumField(),
