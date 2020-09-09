@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/danhale-git/runrdp/internal/configure"
+	"github.com/danhale-git/runrdp/internal/config"
 
 	"github.com/danhale-git/runrdp/internal/rdp"
 
@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var config configure.Configuration
+var configuration config.Configuration
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -28,13 +28,13 @@ var rootCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		arg := args[0]
-		host, ok := config.Hosts[arg]
+		host, ok := configuration.Hosts[arg]
 		if ok {
 			var username, password string
 
 			if cred := host.Credentials(); cred != nil {
 				username, password = cred.Retrieve()
-			} else if cred = config.Creds[arg]; cred != nil {
+			} else if cred = configuration.Creds[arg]; cred != nil {
 				username, password = cred.Retrieve()
 			} else {
 				username, password = "", ""
@@ -98,18 +98,18 @@ func initConfig() {
 
 	// Read all config files into separate viper instances
 	// This includes 'config' which is read a second time here so it may include host and cred configurations
-	config.ReadLocalConfigFiles()
+	configuration.LoadLocalConfigFiles()
 }
 
 func loadMainConfig() {
 	root := viper.GetString("config-root")
-	filePath := viper.GetString(configure.DefaultConfigName)
+	filePath := viper.GetString(config.DefaultConfigName)
 
 	if filePath != "" {
 		viper.SetConfigFile(filePath)
 	} else {
 		viper.AddConfigPath(root)
-		viper.SetConfigName(configure.DefaultConfigName)
+		viper.SetConfigName(config.DefaultConfigName)
 	}
 
 	viper.SetConfigType("toml")

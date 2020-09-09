@@ -1,4 +1,4 @@
-package configure
+package config
 
 import (
 	"fmt"
@@ -30,17 +30,20 @@ type Cred interface {
 	Retrieve() (string, string)
 }
 
+// Get searches data from all config files and returns the value of the given key if it exists or an error if it
+// doesn't.
 func (c *Configuration) Get(key string) (interface{}, error) {
-	for _, config := range c.Files {
-		if config.IsSet(key) {
-			return config.Get(key), nil
+	for _, cfg := range c.Files {
+		if cfg.IsSet(key) {
+			return cfg.Get(key), nil
 		}
 	}
 
 	return nil, fmt.Errorf("config entry '%s' not found", key)
 }
 
-func (c *Configuration) ReadLocalConfigFiles() {
+// LoadLocalConfigFiles load host and cred configurations from all files in the default config directory.
+func (c *Configuration) LoadLocalConfigFiles() {
 	c.Files = make(map[string]*viper.Viper)
 	c.Hosts = make(map[string]Host)
 	c.Creds = make(map[string]Cred)
@@ -62,8 +65,8 @@ func (c *Configuration) readConfigFiles() {
 func (c *Configuration) getConfig(key string) map[string]map[string]interface{} {
 	var allConfigs = make(map[string]map[string]interface{})
 
-	for _, config := range c.Files {
-		for kind, items := range config.GetStringMap(key) {
+	for _, cfg := range c.Files {
+		for kind, items := range cfg.GetStringMap(key) {
 			if _, ok := allConfigs[kind]; !ok {
 				allConfigs[kind] = make(map[string]interface{})
 			}
@@ -86,17 +89,14 @@ func (c *Configuration) loadCredentials(credentialsConfig map[string]map[string]
 func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{}) {
 	for key, data := range hostsConfig["ip"] {
 		c.setHost(key, data.(map[string]interface{}), ipHost)
-
-		c.Creds[key] = c.getHostCred(data)
 	}
 
 	for key, data := range hostsConfig["awsec2"] {
 		c.setHost(key, data.(map[string]interface{}), awsEC2Host)
-
-		c.Creds[key] = c.getHostCred(data)
 	}
 }
 
+// setCred constructs and sets a new cred config struct with the underlying value returned by the given function.
 func (c *Configuration) setCred(
 	key string,
 	data interface{},
@@ -111,9 +111,9 @@ func (c *Configuration) setCred(
 	c.creds[key] = cred
 }
 
+// setHost constructs and sets a new host config struct with the underlying value returned by the given function.
 func (c *Configuration) setHost(
-	key string,
-	data interface{},
+	key string, data interface{},
 	f func(data map[string]interface{}) (Host, error),
 ) {
 	h, err := f(data.(map[string]interface{}))
@@ -123,10 +123,14 @@ func (c *Configuration) setHost(
 	}
 
 	c.Hosts[key] = h
+	c.Creds[key] = c.getHostCred(data.(map[string]interface{}))
 }
 
-func (c *Configuration) getHostCred(data interface{}) Cred {
-	cKey, ok := data.(map[string]interface{})["cred"]
+// getHostCred returns the cred struct which corresponds to the given host data. If no 'cred' field is defined, nil
+// is silently returned (the field is optional). If the cred field is defined but the value is not recognised an error
+// is returned.
+func (c *Configuration) getHostCred(data map[string]interface{}) Cred {
+	cKey, ok := data["cred"]
 	if !ok {
 		return nil
 	}
@@ -205,7 +209,7 @@ func setFields(values reflect.Value, numFields int, data map[string]interface{})
 			dt, ok := v.(bool)
 			if !ok {
 				return ConfigFieldLoadError{
-					ConfigName: "host",
+					ConfigName: strings.ToLower(structType.Name()),
 					FieldName:  k,
 					Message:    "expected value of type bool"}
 			}
@@ -216,7 +220,7 @@ func setFields(values reflect.Value, numFields int, data map[string]interface{})
 			dt, ok := v.(string)
 			if !ok {
 				return ConfigFieldLoadError{
-					ConfigName: "host",
+					ConfigName: strings.ToLower(structType.Name()),
 					FieldName:  k,
 					Message:    "expected value of type string"}
 			}
@@ -228,6 +232,7 @@ func setFields(values reflect.Value, numFields int, data map[string]interface{})
 	return nil
 }
 
+// ConfigFieldLoadError reports an error loading a config field.
 type ConfigFieldLoadError struct {
 	ConfigName string
 	FieldName  string

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/danhale-git/runrdp/internal/configure"
+	"github.com/danhale-git/runrdp/internal/config"
 
 	"github.com/danhale-git/runrdp/internal/rdp"
 
@@ -25,17 +25,19 @@ var awsCmd = &cobra.Command{
 }
 
 func awsCmdRun(_ *cobra.Command, _ []string) {
-	host := configure.EC2Host{
+	host := config.EC2Host{
 		ID:      viper.GetString("ec2-id"),
 		Private: viper.GetBool("private"),
 		Profile: viper.GetString("profile"),
 		Region:  viper.GetString("region"),
 	}
 
-	var credentials configure.Cred
+	var credentials config.Cred
+
 	username, password := "", ""
+
 	if viper.GetBool("awspass") {
-		credentials = configure.EC2GetPassword{Host: &host}
+		credentials = config.EC2GetPassword{Host: &host}
 		username, password = credentials.Retrieve()
 	}
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/danhale-git/runrdp/internal/configure"
+	"github.com/danhale-git/runrdp/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,14 +44,14 @@ var configureCmd = &cobra.Command{
 			f := viper.GetString("file")
 			path := filepath.Join(viper.GetString("config-root"), f)
 
-			if !configure.CheckExistence(
+			if !config.CheckExistence(
 				path,
 				fmt.Sprintf("%s config file", f),
 				false,
 			) {
 				return
 			}
-			config.Files = map[string]*viper.Viper{f: config.Files[f]}
+			configuration.Files = map[string]*viper.Viper{f: configuration.Files[f]}
 		}
 
 		// No arguments given
@@ -59,7 +59,7 @@ var configureCmd = &cobra.Command{
 			// List config entries
 			if viper.GetBool("list") {
 				fmt.Println("\nHosts:")
-				for _, c := range config.Files {
+				for _, c := range configuration.Files {
 					for kind, names := range c.GetStringMap("host") {
 						for name := range names.(map[string]interface{}) {
 							fmt.Printf("  %s (%s)", name, kind)
@@ -92,7 +92,7 @@ var configureCmd = &cobra.Command{
 
 		case "show":
 			name := viper.GetString("name")
-			fmt.Println(config.Get(name))
+			fmt.Println(configuration.Get(name))
 		default:
 		}
 	},
@@ -100,7 +100,7 @@ var configureCmd = &cobra.Command{
 
 func checkDefaultConfig() bool {
 	configRoot := viper.GetString("config-root")
-	if !configure.CheckExistence(
+	if !config.CheckExistence(
 		configRoot,
 		"config directory",
 		true,
@@ -108,8 +108,8 @@ func checkDefaultConfig() bool {
 		return false
 	}
 
-	return configure.CheckExistence(
-		filepath.Join(configRoot, configure.DefaultConfigName),
+	return config.CheckExistence(
+		filepath.Join(configRoot, config.DefaultConfigName),
 		"default config file",
 		false,
 	)

@@ -1,4 +1,4 @@
-package configure
+package config
 
 import (
 	"bufio"
@@ -12,9 +12,13 @@ import (
 )
 
 const (
+	// DefaultConfigName is the name of the default config file. This is the config which will be merged with the
+	// given command line flags.
 	DefaultConfigName = "config"
 )
 
+// CheckExistence checks for the existence of a file or directory, prompts the user to create it and returns true if
+// it either already existed or the user chose to create it.
 func CheckExistence(path, description string, dir bool) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		fmt.Printf("%s does not exist\ncreate at %s? (y/n): ", description, path)
@@ -24,7 +28,7 @@ func CheckExistence(path, description string, dir bool) bool {
 			if dir {
 				fmt.Println("created directory ", path)
 
-				err = os.MkdirAll(path, 700)
+				err = os.MkdirAll(path, 0600)
 				if err != nil {
 					fmt.Printf("failed to create directory %s: %s\n", path, err)
 				}
@@ -92,6 +96,7 @@ func interactiveString(lower bool) (string, bool) {
 	}
 
 	t := strings.TrimSpace(text)
+
 	return t, t != ""
 }
 
