@@ -146,7 +146,6 @@ func secretsManager(data map[string]interface{}) (Cred, error) {
 	c := SecretsManager{}
 	err := setFields(
 		reflect.ValueOf(&c).Elem(),
-		reflect.ValueOf(c).NumField(),
 		data,
 	)
 
@@ -157,7 +156,6 @@ func ipHost(data map[string]interface{}) (Host, error) {
 	h := IPHost{}
 	err := setFields(
 		reflect.ValueOf(&h).Elem(),
-		reflect.ValueOf(h).NumField(),
 		data,
 	)
 
@@ -168,7 +166,6 @@ func awsEC2Host(data map[string]interface{}) (Host, error) {
 	h := EC2Host{}
 	err := setFields(
 		reflect.ValueOf(&h).Elem(),
-		reflect.ValueOf(h).NumField(),
 		data,
 	)
 
@@ -177,18 +174,15 @@ func awsEC2Host(data map[string]interface{}) (Host, error) {
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
 // will be left empty in the struct.
-func setFields(values reflect.Value, numFields int, data map[string]interface{}) error {
+func setFields(values reflect.Value, data map[string]interface{}) error {
 	structType := values.Type()
 
-	fieldMap := make(map[string]reflect.StructField)
 	valueMap := make(map[string]reflect.Value)
 
-	for i := 0; i < numFields; i++ {
-		f := structType.Field(i)
+	for i := 0; i < structType.NumField(); i++ {
 		v := values.Field(i)
-		fieldName := strings.ToLower(f.Name)
+		fieldName := strings.ToLower(structType.Field(i).Name)
 
-		fieldMap[fieldName] = f
 		valueMap[fieldName] = v
 	}
 
@@ -197,46 +191,64 @@ func setFields(values reflect.Value, numFields int, data map[string]interface{})
 			continue
 		}
 
-		_, ok := fieldMap[k]
+		_, ok := valueMap[k]
 		if !ok {
 			return fmt.Errorf("config key %s is invalid for type %s", k, structType.Name())
 		}
 
-		switch fieldMap[k].Type.Name() {
-		case "bool":
+		value := valueMap[k]
+		n := strings.ToLower(structType.Name())
+
+		switch value.Kind() {
+		case reflect.Bool:
 			dt, ok := v.(bool)
 			if !ok {
-				return ConfigFieldLoadError{
-					ConfigName: strings.ToLower(structType.Name()),
-					FieldName:  k,
-					Message:    "expected value of type bool"}
+				return FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type bool"}
 			}
 
-			valueMap[k].SetBool(dt)
+			value.SetBool(dt)
 
-		case "string":
+		case reflect.String:
 			dt, ok := v.(string)
 			if !ok {
-				return ConfigFieldLoadError{
-					ConfigName: strings.ToLower(structType.Name()),
-					FieldName:  k,
-					Message:    "expected value of type string"}
+				return FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type string"}
 			}
 
-			valueMap[k].SetString(dt)
+			value.SetString(dt)
+
+		case reflect.Map:
+			dt, ok := v.(map[string]interface{})
+			if !ok {
+				return FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value map[string]interface{} ({ key1 = \"val1\", key2 = \"val2\" })"}
+			}
+
+			t := value.Type()
+
+			if value.IsNil() {
+				value.Set(reflect.MakeMap(t))
+			}
+
+			for k, v := range dt {
+				kVal := reflect.ValueOf(k)
+				vVal := reflect.ValueOf(v)
+				value.SetMapIndex(kVal, vVal)
+			}
 		}
 	}
 
 	return nil
 }
 
-// ConfigFieldLoadError reports an error loading a config field.
-type ConfigFieldLoadError struct {
+// FieldLoadError reports an error loading a config field.
+type FieldLoadError struct {
 	ConfigName string
 	FieldName  string
 	Message    string
 }
 
-func (c ConfigFieldLoadError) Error() string {
+func (c FieldLoadError) Error() string {
 	return fmt.Sprintf("error loading '%s' field in %s config: %s", c.FieldName, c.ConfigName, c.Message)
 }

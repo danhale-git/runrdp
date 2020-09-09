@@ -19,6 +19,7 @@ func (h IPHost) Socket() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("address %s is not a valid hostname or ip: %s", h.Address, err)
 	}
+
 	return h.Address, nil // :<port>
 }
 
@@ -29,11 +30,13 @@ func (h IPHost) Credentials() Cred {
 
 // EC2Host defines an AWS EC2 instance to connect to by getting it's address from the AWS API.
 type EC2Host struct {
-	Private bool
-	GetCred bool
-	ID      string
-	Profile string
-	Region  string
+	Private     bool
+	GetCred     bool
+	ID          string
+	Profile     string
+	Region      string
+	IncludeTags map[string]interface{}
+	ExcludeTags map[string]interface{}
 	//Port    int
 }
 
