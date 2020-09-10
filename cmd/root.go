@@ -30,8 +30,13 @@ var rootCmd = &cobra.Command{
 		arg := args[0]
 		host, ok := configuration.Hosts[arg]
 		if ok {
+			socket, err := host.Socket()
+			if err != nil {
+				fmt.Printf("Error retrieving host address: %s\n", err)
+				return
+			}
+
 			var username, password string
-			var err error
 
 			if cred := host.Credentials(); cred != nil {
 				username, password, err = cred.Retrieve()
@@ -45,12 +50,7 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Error retrieving credentials: %s\n", err)
 			}
 
-			socket, err := host.Socket()
-			if err == nil {
-				rdp.Connect(socket, username, password)
-			} else {
-				fmt.Printf("Error retrieving host address: %s\n", err)
-			}
+			rdp.Connect(socket, username, password)
 
 		} else if h, err := net.LookupHost(arg); err == nil {
 			rdp.Connect(h[0], "", "")

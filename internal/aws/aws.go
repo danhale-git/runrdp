@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-// Creates and validates a new AWS session. If region is an empty string, .aws/config region settings will be used.
+// NewSession creates and validates a new AWS session. If region is an empty string, .aws/config region settings will be used.
 func NewSession(profile, region string) *session.Session {
 	opts := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -32,22 +32,69 @@ func NewSession(profile, region string) *session.Session {
 	return sess
 }
 
+// InstanceFromID returns the details of the AWS EC2 instance with the given ID or an error if it isn't found.
 func InstanceFromID(sess *session.Session, id string) (*ec2.Instance, error) {
 	instances, err := getInstances(sess)
-
 	if err != nil {
 		return nil, err
 	}
 
-	for _, i := range instances {
-		if *i.InstanceId == id {
-			return &i, nil
+	for _, inst := range instances {
+		if *inst.InstanceId == id {
+			//fmt.Printf("%+v\n", inst)
+			return &inst, nil
 		}
 	}
 
 	return nil, fmt.Errorf("instance with ID %s was not found", id)
 }
 
+// InstanceFromTagFilter attempts to find a single instance based on the given tag filters. If more than one or 0
+// instances are found it returns an error.
+func InstanceFromTagFilter(sess *session.Session, include, exclude []string) (*ec2.Instance, error) {
+	instances, err := getInstances(sess)
+
+	if err != nil {
+		return nil, err
+	}
+
+	eligible := make([]ec2.Instance, 0)
+
+	for _, inst := range instances {
+		if inst.Tags == nil {
+			continue
+		}
+
+		if containsTag(inst.Tags, include) && !containsTag(inst.Tags, exclude) {
+			eligible = append(eligible, inst)
+		}
+	}
+
+	if len(eligible) > 1 {
+		return nil, fmt.Errorf("found multiple instances with tags: %+v")
+	} else if len(eligible) == 0 {
+		return nil, fmt.Errorf("no instances found with matching tags")
+	} else {
+		return &eligible[0], nil
+	}
+}
+
+func containsTag(instanceTags []*ec2.Tag, givenTags []string) bool {
+	for _, t := range instanceTags {
+		for _, s := range givenTags {
+			split := strings.Split(s, ":")
+			if *t.Key == split[0] &&
+				(len(split) == 1 || *t.Value == split[1]) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// GetPassword returns the initial administrator credentials for the given EC2 instance or an error if they are not
+// found
 func GetPassword(profile, region, instanceID, sshDirectory string) (string, error) {
 	sess := NewSession(profile, region)
 	instance, err := InstanceFromID(sess, instanceID)

@@ -19,13 +19,13 @@ type Configuration struct {
 
 // Host can return a hostname or IP address and optionally a port and credential name to use.
 type Host interface {
-	Socket() (string, error)
-	Credentials() Cred
+	Socket() (string, error) // Host.Socket is called first
+	Credentials() Cred       // Host.Credentials is called second
 }
 
 // Cred can return valid credentials used to authenticate and RDP session.
 type Cred interface {
-	Retrieve() (string, string, error)
+	Retrieve() (string, string, error) // Cred.Credentials is called third
 }
 
 // Get searches data from all config files and returns the value of the given key if it exists or an error if it
@@ -159,7 +159,7 @@ func ipHost(data map[string]interface{}) (Host, error) {
 		data,
 	)
 
-	return h, err
+	return &h, err
 }
 
 func awsEC2Host(data map[string]interface{}) (Host, error) {
@@ -169,7 +169,7 @@ func awsEC2Host(data map[string]interface{}) (Host, error) {
 		data,
 	)
 
-	return h, err
+	return &h, err
 }
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
@@ -191,8 +191,8 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 			continue
 		}
 
-		_, ok := valueMap[k]
-		if !ok {
+		_, exists := valueMap[k]
+		if !exists {
 			return fmt.Errorf("config key %s is invalid for type %s", k, structType.Name())
 		}
 
@@ -225,16 +225,35 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 					Message: "expected value map[string]interface{} ({ key1 = \"val1\", key2 = \"val2\" })"}
 			}
 
-			t := value.Type()
-
 			if value.IsNil() {
-				value.Set(reflect.MakeMap(t))
+				value.Set(reflect.MakeMap(value.Type()))
 			}
 
-			for k, v := range dt {
-				kVal := reflect.ValueOf(k)
-				vVal := reflect.ValueOf(v)
+			for key, val := range dt {
+				kVal := reflect.ValueOf(key)
+				vVal := reflect.ValueOf(val)
 				value.SetMapIndex(kVal, vVal)
+			}
+
+		case reflect.Slice:
+			dt, ok := v.([]interface{})
+			if !ok {
+				return FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type array"}
+			}
+
+			if value.IsNil() {
+				value.Set(reflect.MakeSlice(value.Type(), len(dt), cap(dt)))
+			}
+
+			for i, item := range dt {
+				val, ok := item.(string)
+				if !ok {
+					return FieldLoadError{ConfigName: n, FieldName: k,
+						Message: fmt.Sprintf(`array item %d: expected value of type string (["Key1:Val1", "Key2:Val2", "KeyOnly"])`, i)}
+				}
+
+				value.Index(i).Set(reflect.ValueOf(val))
 			}
 		}
 	}
