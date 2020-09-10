@@ -50,17 +50,20 @@ func (h *EC2Host) Socket() (string, error) {
 
 	var err error
 
-	if h.ID != "" {
+	switch {
+	case h.ID != "":
 		instance, err = aws.InstanceFromID(sess, h.ID)
-	} else if h.IncludeTags != nil {
+		if err != nil {
+			return "", fmt.Errorf("getting ec2 instance by id: %s", err)
+		}
+	case h.IncludeTags != nil:
 		instance, err = aws.InstanceFromTagFilter(sess, h.IncludeTags, h.ExcludeTags)
+		if err != nil {
+			return "", fmt.Errorf("getting ec2 instance by tag filter: %s", err)
+		}
 		h.ID = *instance.InstanceId
-	} else {
+	default:
 		return "", fmt.Errorf("no tag filters and no instance id in config, must provide one")
-	}
-
-	if err != nil {
-		return "", fmt.Errorf("getting ec2 instance: %s", err)
 	}
 
 	if h.Private {

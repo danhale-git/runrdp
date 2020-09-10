@@ -17,7 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-// NewSession creates and validates a new AWS session. If region is an empty string, .aws/config region settings will be used.
+// NewSession creates and validates a new AWS session. If region is an empty string, .aws/config region settings will be
+// used.
 func NewSession(profile, region string) *session.Session {
 	opts := session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -34,7 +35,10 @@ func NewSession(profile, region string) *session.Session {
 
 // InstanceFromID returns the details of the AWS EC2 instance with the given ID or an error if it isn't found.
 func InstanceFromID(sess *session.Session, id string) (*ec2.Instance, error) {
-	instances, err := getInstances(sess)
+	name := "instance-id"
+	filters := []*ec2.Filter{{Name: &name, Values: []*string{&id}}}
+	instances, err := getInstances(sess, &ec2.DescribeInstancesInput{Filters: filters})
+
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +56,36 @@ func InstanceFromID(sess *session.Session, id string) (*ec2.Instance, error) {
 // InstanceFromTagFilter attempts to find a single instance based on the given tag filters. If more than one or 0
 // instances are found it returns an error.
 func InstanceFromTagFilter(sess *session.Session, include, exclude []string) (*ec2.Instance, error) {
-	instances, err := getInstances(sess)
+	filters := make([]*ec2.Filter, len(include))
+	for i := 0; i < len(filters); i++ {
+		split := strings.Split(include[i], ":")
+
+		var name string
+
+		var values []*string
+
+		switch len(split) {
+		// tag:<key> - The key/value combination of a tag assigned to the resource.
+		// Use the tag key in the filter name and the tag value as the filter value.
+		case 2:
+			name = fmt.Sprintf("tag:%s", split[0])
+			values = []*string{&split[1]}
+		// tag-key - The key of a tag assigned to the resource. Tag value is the value.
+		case 1:
+			name = "tag-key"
+			values = []*string{&split[0]}
+
+		default:
+			return nil, fmt.Errorf("item %d in includetags filter contains more than one colon (:)", i)
+		}
+
+		filters[i] = &ec2.Filter{
+			Name:   &name,
+			Values: values,
+		}
+	}
+
+	instances, err := getInstances(sess, &ec2.DescribeInstancesInput{Filters: filters})
 
 	if err != nil {
 		return nil, err
@@ -71,7 +104,7 @@ func InstanceFromTagFilter(sess *session.Session, include, exclude []string) (*e
 	}
 
 	if len(eligible) > 1 {
-		return nil, fmt.Errorf("found multiple instances with tags: %+v")
+		return nil, fmt.Errorf("%d instances found with given tags, must identify a single instance", len(eligible))
 	} else if len(eligible) == 0 {
 		return nil, fmt.Errorf("no instances found with matching tags")
 	} else {
@@ -160,9 +193,9 @@ func fileNames(directory string) []string {
 	return names
 }
 
-func getInstances(sess *session.Session) ([]ec2.Instance, error) {
+func getInstances(sess *session.Session, input *ec2.DescribeInstancesInput) ([]ec2.Instance, error) {
 	svc := ec2.New(sess)
-	response, err := svc.DescribeInstances(nil)
+	response, err := svc.DescribeInstances(input)
 
 	if err != nil {
 		return nil, err
