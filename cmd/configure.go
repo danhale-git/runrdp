@@ -1,13 +1,20 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"path/filepath"
-
-	"github.com/danhale-git/runrdp/internal/config"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	// DefaultConfigName is the name of the default config file. This is the config which will be merged with the
+	// given command line flags.
+	DefaultConfigName = "config"
 )
 
 // configureCmd represents the configure command
@@ -44,14 +51,14 @@ var configureCmd = &cobra.Command{
 			f := viper.GetString("file")
 			path := filepath.Join(viper.GetString("config-root"), f)
 
-			if !config.CheckExistence(
+			if !CheckExistence(
 				path,
 				fmt.Sprintf("%s config file", f),
 				false,
 			) {
 				return
 			}
-			configuration.Files = map[string]*viper.Viper{f: configuration.Files[f]}
+			configuration.Data = map[string]*viper.Viper{f: configuration.Data[f]}
 		}
 
 		// No arguments given
@@ -59,7 +66,7 @@ var configureCmd = &cobra.Command{
 			// List config entries
 			if viper.GetBool("list") {
 				fmt.Println("\nHosts:")
-				for _, c := range configuration.Files {
+				for _, c := range configuration.Data {
 					for kind, names := range c.GetStringMap("host") {
 						for name := range names.(map[string]interface{}) {
 							fmt.Printf("  %s (%s)", name, kind)
@@ -91,8 +98,8 @@ var configureCmd = &cobra.Command{
 			}*/
 
 		case "show":
-			name := viper.GetString("name")
-			fmt.Println(configuration.Get(name))
+			//name := viper.GetString("name")
+			//fmt.Println(configuration.Get(name))
 		default:
 		}
 	},
@@ -100,7 +107,7 @@ var configureCmd = &cobra.Command{
 
 func checkDefaultConfig() bool {
 	configRoot := viper.GetString("config-root")
-	if !config.CheckExistence(
+	if !CheckExistence(
 		configRoot,
 		"config directory",
 		true,
@@ -108,8 +115,8 @@ func checkDefaultConfig() bool {
 		return false
 	}
 
-	return config.CheckExistence(
-		filepath.Join(configRoot, config.DefaultConfigName),
+	return CheckExistence(
+		filepath.Join(configRoot, DefaultConfigName),
 		"default config file",
 		false,
 	)
@@ -123,4 +130,44 @@ func init() {
 	configureCmd.Flags().StringP("file", "f", "", "name of the config file to operate on")
 
 	viper.BindPFlags(configureCmd.Flags())
+}
+
+// CheckExistence checks for the existence of a file or directory, prompts the user to create it and returns true if
+// it either already existed or the user chose to create it.
+func CheckExistence(path, description string, dir bool) bool {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Printf("%s does not exist\ncreate at %s? (y/n): ", description, path)
+
+		yes := interactiveYesNo()
+		if yes {
+			if dir {
+				fmt.Println("created directory ", path)
+
+				err = os.MkdirAll(path, 0600)
+				if err != nil {
+					fmt.Printf("failed to create directory %s: %s\n", path, err)
+				}
+			} else {
+				fmt.Println("created file ", path)
+
+				_, err = os.Create(path)
+				if err != nil {
+					fmt.Printf("failed to create file %s: %s\n", path, err)
+				}
+			}
+			// User chose to create
+			return true
+		}
+		// User chose not to create
+		return false
+	}
+	// Item already exists
+	return true
+}
+
+func interactiveYesNo() bool {
+	reader := bufio.NewReader(os.Stdin)
+	text, _ := reader.ReadString('\n')
+
+	return strings.TrimSpace(strings.ToLower(text)) == "y"
 }

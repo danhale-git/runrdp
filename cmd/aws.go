@@ -39,7 +39,7 @@ func awsCmdRun(_ *cobra.Command, _ []string) {
 	var err error
 
 	if viper.GetBool("getpass") {
-		credentials = config.EC2GetPassword{Host: &host}
+		credentials = &config.EC2PasswordCred{Host: &host}
 		username, password, err = credentials.Retrieve()
 
 		if err != nil {

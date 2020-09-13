@@ -108,18 +108,19 @@ func initConfig() {
 
 	// Read all config files into separate viper instances
 	// This includes 'config' which is read a second time here so it may include host and cred configurations
-	configuration.LoadLocalConfigFiles()
+	configuration.ReadConfigFiles()
+	configuration.BuildData()
 }
 
 func loadMainConfig() {
 	root := viper.GetString("config-root")
-	filePath := viper.GetString(config.DefaultConfigName)
+	filePath := viper.GetString(DefaultConfigName)
 
 	if filePath != "" {
 		viper.SetConfigFile(filePath)
 	} else {
 		viper.AddConfigPath(root)
-		viper.SetConfigName(config.DefaultConfigName)
+		viper.SetConfigName(DefaultConfigName)
 	}
 
 	viper.SetConfigType("toml")

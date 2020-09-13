@@ -3,11 +3,27 @@ package config
 import (
 	"fmt"
 	"net"
+	"reflect"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"github.com/danhale-git/runrdp/internal/aws"
 )
+
+// GetHost returns a host struct and it's reflect.Value based on the given type key.
+func GetHost(key string) (Host, reflect.Value, error) {
+	switch key {
+	case "ip":
+		host := IPHost{}
+		return &host, reflect.ValueOf(&host).Elem(), nil
+	case "awsec2":
+		host := EC2Host{}
+		return &host, reflect.ValueOf(&host).Elem(), nil
+	default:
+		return nil, reflect.Value{},
+			fmt.Errorf("host type key'%s' not recognized", key)
+	}
+}
 
 // IPHost defines a host to connect to using an IP or hostname.
 type IPHost struct {
@@ -73,10 +89,10 @@ func (h *EC2Host) Socket() (string, error) {
 	return *instance.PublicIpAddress, nil // :<port>
 }
 
-// Credentials returns the special credentials type EC2GetPassword if the GetCred field is true, or nil if it is not.
+// Credentials returns the special credentials type EC2PasswordCred if the GetCred field is true, or nil if it is not.
 func (h *EC2Host) Credentials() Cred {
 	if h.GetCred {
-		return EC2GetPassword{Host: h}
+		return &EC2PasswordCred{Host: h}
 	}
 
 	return nil

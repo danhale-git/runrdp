@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -11,7 +13,7 @@ import (
 // Configuration load multiple configuration files into individual viper instances and creates structs representing
 // the configured hosts and credential sources.
 type Configuration struct {
-	Files map[string]*viper.Viper // Data from individual config files
+	Data  map[string]*viper.Viper // Data from individual config files
 	Hosts map[string]Host         // Host configs
 	Creds map[string]Cred         // Cred configs by host key name
 	creds map[string]Cred         // Cred configs by cred key name
@@ -28,42 +30,78 @@ type Cred interface {
 	Retrieve() (string, string, error) // Cred.Credentials is called third
 }
 
-// Get searches data from all config files and returns the value of the given key if it exists or an error if it
+/*// Get searches data from all config files and returns the value of the given key if it exists or an error if it
 // doesn't.
 func (c *Configuration) Get(key string) (interface{}, error) {
-	for _, cfg := range c.Files {
+	for _, cfg := range c.Data {
 		if cfg.IsSet(key) {
 			return cfg.Get(key), nil
 		}
 	}
 
 	return nil, fmt.Errorf("config entry '%s' not found", key)
+}*/
+
+// ReadConfigFiles reads each file in the config directory as an individual Viper instance.
+func (c *Configuration) ReadConfigFiles() {
+	c.Data = make(map[string]*viper.Viper)
+
+	for _, configFile := range configFileNames() {
+		c.Data[configFile] = readFile(configFile)
+	}
 }
 
-// LoadLocalConfigFiles load host and cred configurations from all files in the default config directory.
-func (c *Configuration) LoadLocalConfigFiles() {
-	c.Files = make(map[string]*viper.Viper)
+func configFileNames() []string {
+	files, err := ioutil.ReadDir(viper.GetString("config-root"))
+	if err != nil {
+		return []string{}
+	}
+
+	names := make([]string, 0)
+
+	for _, f := range files {
+		n := f.Name()
+		if strings.TrimSpace(n) == "" {
+			continue
+		}
+
+		names = append(names, n)
+	}
+
+	return names
+}
+
+func readFile(name string) *viper.Viper {
+	newViper := viper.New()
+
+	newViper.SetConfigType("toml")
+	newViper.SetConfigFile(filepath.Join(
+		viper.GetString("config-root"),
+		name,
+	))
+
+	if err := newViper.ReadInConfig(); err != nil {
+		fmt.Printf("failed to load %s config: %v\n", name, err)
+	}
+
+	return newViper
+}
+
+// BuildData constructs Host and Cred objects from all available config data.
+func (c *Configuration) BuildData() {
 	c.Hosts = make(map[string]Host)
 	c.Creds = make(map[string]Cred)
 	c.creds = make(map[string]Cred)
 
-	c.readConfigFiles()
-	c.loadCredentials(c.getConfig("cred"))
-	c.loadHosts(c.getConfig("host"))
+	c.loadCredentials(c.get("cred"))
+	c.loadHosts(c.get("host"))
 }
 
-// readConfigFiles reads all configuration files into viper
-func (c *Configuration) readConfigFiles() {
-	for _, configFile := range configFileNames() {
-		c.Files[configFile] = readFile(configFile)
-	}
-}
-
-// getConfig returns the all configurations under the given key, from all config files.
-func (c *Configuration) getConfig(key string) map[string]map[string]interface{} {
+// get returns the all configured items under the given key, from all config files.
+func (c *Configuration) get(key string) map[string]map[string]interface{} {
 	var allConfigs = make(map[string]map[string]interface{})
 
-	for _, cfg := range c.Files {
+	for _, cfg := range c.Data {
 		for kind, items := range cfg.GetStringMap(key) {
 			if _, ok := allConfigs[kind]; !ok {
 				allConfigs[kind] = make(map[string]interface{})
@@ -79,49 +117,48 @@ func (c *Configuration) getConfig(key string) map[string]map[string]interface{} 
 }
 
 func (c *Configuration) loadCredentials(credentialsConfig map[string]map[string]interface{}) {
-	for key, data := range credentialsConfig["awssm"] {
-		c.setCred(key, data, secretsManager)
+	for typeKey, item := range credentialsConfig {
+		for itemKey, data := range item {
+			cred, val, err := GetCredential(typeKey)
+
+			if err != nil {
+				fmt.Printf("Failed to load credentials '%s': %s\n", itemKey, err)
+				continue
+			}
+
+			err = setFields(val, data.(map[string]interface{}))
+
+			if err != nil {
+				fmt.Printf("Failed to load credentials '%s': %s\n", itemKey, err)
+				continue
+			}
+
+			c.creds[itemKey] = cred
+		}
 	}
 }
 
 func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{}) {
-	for key, data := range hostsConfig["ip"] {
-		c.setHost(key, data.(map[string]interface{}), ipHost)
+	for typeKey, item := range hostsConfig {
+		for itemKey, data := range item {
+			host, val, err := GetHost(typeKey)
+
+			if err != nil {
+				fmt.Printf("Failed to load host '%s': %s\n", itemKey, err)
+				continue
+			}
+
+			err = setFields(val, data.(map[string]interface{}))
+
+			if err != nil {
+				fmt.Printf("Failed to load host '%s': %s\n", itemKey, err)
+				continue
+			}
+
+			c.Hosts[itemKey] = host
+			c.Creds[itemKey] = c.getHostCred(data.(map[string]interface{}))
+		}
 	}
-
-	for key, data := range hostsConfig["awsec2"] {
-		c.setHost(key, data.(map[string]interface{}), awsEC2Host)
-	}
-}
-
-// setCred constructs and sets a new cred config struct with the underlying value returned by the given function.
-func (c *Configuration) setCred(
-	key string,
-	data interface{},
-	f func(data map[string]interface{}) (Cred, error),
-) {
-	cred, err := f(data.(map[string]interface{}))
-
-	if err != nil {
-		fmt.Printf("Failed to load credentials '%s': %s\n", key, err)
-	}
-
-	c.creds[key] = cred
-}
-
-// setHost constructs and sets a new host config struct with the underlying value returned by the given function.
-func (c *Configuration) setHost(
-	key string, data interface{},
-	f func(data map[string]interface{}) (Host, error),
-) {
-	h, err := f(data.(map[string]interface{}))
-
-	if err != nil {
-		fmt.Printf("Failed to load host '%s': %s\n", key, err)
-	}
-
-	c.Hosts[key] = h
-	c.Creds[key] = c.getHostCred(data.(map[string]interface{}))
 }
 
 // getHostCred returns the cred struct which corresponds to the given host data. If no 'cred' field is defined, nil
@@ -140,36 +177,6 @@ func (c *Configuration) getHostCred(data map[string]interface{}) Cred {
 	}
 
 	return cred
-}
-
-func secretsManager(data map[string]interface{}) (Cred, error) {
-	c := SecretsManager{}
-	err := setFields(
-		reflect.ValueOf(&c).Elem(),
-		data,
-	)
-
-	return c, err
-}
-
-func ipHost(data map[string]interface{}) (Host, error) {
-	h := IPHost{}
-	err := setFields(
-		reflect.ValueOf(&h).Elem(),
-		data,
-	)
-
-	return &h, err
-}
-
-func awsEC2Host(data map[string]interface{}) (Host, error) {
-	h := EC2Host{}
-	err := setFields(
-		reflect.ValueOf(&h).Elem(),
-		data,
-	)
-
-	return &h, err
 }
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
