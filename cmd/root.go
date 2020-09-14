@@ -95,6 +95,11 @@ func init() {
 		"directory containing config files",
 	)
 
+	rootCmd.PersistentFlags().String(
+		"tag-separator", ";",
+		"separator character for tags",
+	)
+
 	err = viper.BindPFlags(rootCmd.PersistentFlags())
 	if err != nil {
 		panic(err)

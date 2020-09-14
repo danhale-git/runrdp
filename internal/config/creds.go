@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/danhale-git/runrdp/internal/aws"
+	"github.com/danhale-git/runrdp/internal/aws/ec2instances"
+	"github.com/danhale-git/runrdp/internal/aws/secrets"
+
 	"github.com/spf13/viper"
 )
 
@@ -27,12 +29,27 @@ type EC2PasswordCred struct {
 
 // Retrieve returns the administrator credentials for this instance or exists if unable to retrieve them.
 func (p *EC2PasswordCred) Retrieve() (string, string, error) {
-	// Get instance password
-	password, err := aws.GetPassword(
-		p.Host.Profile,
-		p.Host.Region,
-		p.Host.ID,
+	svc := ec2instances.NewSession(p.Host.Profile, p.Host.Region)
+	instance, err := ec2instances.InstanceFromID(svc, p.Host.ID)
+
+	if err != nil {
+		return "", "", fmt.Errorf("getting ec2 instance: %s", err)
+	}
+
+	keyData, err := ec2instances.ReadPrivateKey(
 		viper.GetString("ssh-directory"),
+		*instance.KeyName,
+	)
+
+	if err != nil {
+		return "", "", fmt.Errorf("reading private key: %s", err)
+	}
+
+	// Get instance password
+	password, err := ec2instances.GetPassword(
+		svc,
+		p.Host.ID,
+		keyData,
 	)
 	if err != nil {
 		return "", "", fmt.Errorf("getting ec2 administrator credentials: %s", err)
@@ -47,17 +64,18 @@ func (p *EC2PasswordCred) Retrieve() (string, string, error) {
 type SecretsManagerCred struct {
 	Username string
 	Password string
+	Profile  string
 	Region   string
 }
 
 // Retrieve returns the values for the configured Secrets Manager keys.
 func (s *SecretsManagerCred) Retrieve() (string, string, error) {
-	username, err := aws.GetSecret(s.Region, s.Username)
+	username, err := secrets.Get(s.Profile, s.Region, s.Username)
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving username: %s", err)
 	}
 
-	password, err := aws.GetSecret(s.Region, s.Password)
+	password, err := secrets.Get(s.Profile, s.Region, s.Password)
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving password: %s", err)
 	}
