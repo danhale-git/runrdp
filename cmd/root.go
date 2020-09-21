@@ -30,7 +30,16 @@ var rootCmd = &cobra.Command{
 		arg := args[0]
 		host, ok := configuration.Hosts[arg]
 		if ok {
-			socket, err := host.Socket()
+			var socket string
+			var err error
+			// If a proxy was defined, use it's address
+			if proxy, defined := configuration.Proxys[arg]; defined {
+				p := *proxy
+				socket, err = p.Socket()
+			} else {
+				socket, err = host.Socket()
+			}
+
 			if err != nil {
 				fmt.Printf("Error retrieving host address: %s\n", err)
 				return
@@ -40,7 +49,7 @@ var rootCmd = &cobra.Command{
 
 			if cred := host.Credentials(); cred != nil {
 				username, password, err = cred.Retrieve()
-			} else if cred = configuration.Creds[arg]; cred != nil {
+			} else if cred = *configuration.Creds[arg]; cred != nil {
 				username, password, err = cred.Retrieve()
 			} else {
 				username, password = "", ""

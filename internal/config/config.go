@@ -13,10 +13,12 @@ import (
 // Configuration load multiple configuration files into individual viper instances and creates structs representing
 // the configured hosts and credential sources.
 type Configuration struct {
-	Data  map[string]*viper.Viper // Data from individual config files
-	Hosts map[string]Host         // Host configs
-	Creds map[string]Cred         // Cred configs by host key name
-	creds map[string]Cred         // Cred configs by cred key name
+	Data   map[string]*viper.Viper // Data from individual config files
+	Hosts  map[string]Host         // Host configs
+	Creds  map[string]*Cred        // Cred configs by host key name
+	Proxys map[string]*Host        // Host Proxys by host key name
+
+	creds map[string]Cred // Cred configs by cred key name
 }
 
 // Host can return a hostname or IP address and optionally a port and credential name to use.
@@ -90,7 +92,8 @@ func readFile(name string) *viper.Viper {
 // BuildData constructs Host and Cred objects from all available config data.
 func (c *Configuration) BuildData() {
 	c.Hosts = make(map[string]Host)
-	c.Creds = make(map[string]Cred)
+	c.Creds = make(map[string]*Cred)
+	c.Proxys = make(map[string]*Host)
 	c.creds = make(map[string]Cred)
 
 	c.loadCredentials(c.get("cred"))
@@ -156,15 +159,15 @@ func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{})
 			}
 
 			c.Hosts[itemKey] = host
-			c.Creds[itemKey] = c.getHostCred(data.(map[string]interface{}))
+			c.Creds[itemKey] = c.hostCred(data.(map[string]interface{}))
+			c.Proxys[itemKey] = c.hostProxy(data.(map[string]interface{}))
 		}
 	}
 }
 
-// getHostCred returns the cred struct which corresponds to the given host data. If no 'cred' field is defined, nil
-// is silently returned (the field is optional). If the cred field is defined but the value is not recognised an error
-// is returned.
-func (c *Configuration) getHostCred(data map[string]interface{}) Cred {
+// hostCred returns a pointer to the Cred referenced by the cred field in this host. If no 'cred' field is defined, nil
+// is silently returned (the field is optional).
+func (c *Configuration) hostCred(data map[string]interface{}) *Cred {
 	cKey, ok := data["cred"]
 	if !ok {
 		return nil
@@ -172,11 +175,28 @@ func (c *Configuration) getHostCred(data map[string]interface{}) Cred {
 
 	cred, ok := c.creds[cKey.(string)]
 	if !ok {
-		fmt.Printf("Credentials '%s' not found", cKey)
-		return cred
+		fmt.Printf("Credentials '%s' not found\n", cKey)
+		return &cred
 	}
 
-	return cred
+	return &cred
+}
+
+// hostProxy returns a pointer to the Host referenced by the proxy field in this host config. If no 'proxy' field is
+// defined, nil is silently returned (the field is optional).
+func (c *Configuration) hostProxy(data map[string]interface{}) *Host {
+	pKey, ok := data["proxy"]
+	if !ok {
+		return nil
+	}
+
+	proxy, ok := c.Hosts[pKey.(string)]
+	if !ok {
+		fmt.Printf("Host '%s' not found\n", pKey)
+		return &proxy
+	}
+
+	return &proxy
 }
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
@@ -194,7 +214,7 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 	}
 
 	for k, v := range data {
-		if k == "cred" {
+		if k == "cred" || k == "proxy" {
 			continue
 		}
 
