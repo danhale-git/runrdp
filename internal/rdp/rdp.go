@@ -17,9 +17,11 @@ var path = "connection.rdp"
 func Connect(host, user, pass string) {
 	cmdlineUser := viper.GetString("username")
 	cmdlinePass := viper.GetString("password")
+
 	if cmdlineUser != "" {
 		user = cmdlineUser
 	}
+
 	if cmdlinePass != "" {
 		pass = cmdlinePass
 	}

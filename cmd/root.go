@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/danhale-git/runrdp/internal/config"
 
@@ -30,14 +31,14 @@ var rootCmd = &cobra.Command{
 		arg := args[0]
 		host, ok := configuration.Hosts[arg]
 		if ok {
-			var socket string
+			var address string
 			var err error
 			// If a proxy was defined, use it's address
-			if proxy, defined := configuration.Proxys[arg]; defined {
-				p := *proxy
-				socket, err = p.Socket()
+			if configuration.Proxys[arg] != nil {
+				p := *configuration.Proxys[arg]
+				address, err = p.GetAddress()
 			} else {
-				socket, err = host.Socket()
+				address, err = host.GetAddress()
 			}
 
 			if err != nil {
@@ -49,8 +50,9 @@ var rootCmd = &cobra.Command{
 
 			if cred := host.Credentials(); cred != nil {
 				username, password, err = cred.Retrieve()
-			} else if cred = *configuration.Creds[arg]; cred != nil {
-				username, password, err = cred.Retrieve()
+			} else if configuration.Creds[arg] != nil {
+				c := *configuration.Creds[arg]
+				username, password, err = c.Retrieve()
 			} else {
 				username, password = "", ""
 			}
@@ -59,12 +61,21 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Error retrieving credentials: %s\n", err)
 			}
 
-			rdp.Connect(socket, username, password)
+			p := host.GetPort()
+			if p > 0 {
+				address = fmt.Sprintf("%s:%d", address, p)
+			}
 
-		} else if h, err := net.LookupHost(arg); err == nil {
-			rdp.Connect(h[0], "", "")
+			rdp.Connect(address, username, password)
+
 		} else {
-			fmt.Printf("'%s' is not a config entry, hostname or IP address\n", arg)
+			split := strings.Split(arg, ":")
+			_, err := net.LookupHost(split[0])
+			if err == nil {
+				rdp.Connect(arg, "", "")
+			} else {
+				fmt.Printf("'%s' is not a config entry, hostname or IP address\n", arg)
+			}
 		}
 	},
 }

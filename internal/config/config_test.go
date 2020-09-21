@@ -11,7 +11,7 @@ func newConfiguration(configurations ...*viper.Viper) Configuration {
 	c := Configuration{}
 	c.Data = make(map[string]*viper.Viper)
 	c.Hosts = make(map[string]Host)
-	c.Creds = make(map[string]Cred)
+	c.Creds = make(map[string]*Cred)
 	c.creds = make(map[string]Cred)
 
 	for i, config := range configurations {
@@ -26,6 +26,7 @@ func configFromString(fileContents string) (*viper.Viper, error) {
 	v := viper.New()
 	v.SetConfigType("toml")
 	err := v.ReadConfig(r)
+
 	return v, err
 }
 

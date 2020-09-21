@@ -23,8 +23,9 @@ type Configuration struct {
 
 // Host can return a hostname or IP address and optionally a port and credential name to use.
 type Host interface {
-	Socket() (string, error) // Host.Socket is called first
-	Credentials() Cred       // Host.Credentials is called second
+	GetAddress() (string, error) // Host.GetAddress is called first
+	GetPort() int
+	Credentials() Cred // Host.Credentials is called second
 }
 
 // Cred can return valid credentials used to authenticate and RDP session.
@@ -160,6 +161,12 @@ func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{})
 
 			c.Hosts[itemKey] = host
 			c.Creds[itemKey] = c.hostCred(data.(map[string]interface{}))
+		}
+	}
+
+	// Second pass now hosts are all loaded, to get proxy hosts
+	for _, item := range hostsConfig {
+		for itemKey, data := range item {
 			c.Proxys[itemKey] = c.hostProxy(data.(map[string]interface{}))
 		}
 	}
@@ -235,6 +242,15 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 			}
 
 			value.SetBool(dt)
+
+		case reflect.Int:
+			dt, ok := v.(int64)
+			if !ok {
+				return FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type integer"}
+			}
+
+			value.SetInt(dt)
 
 		case reflect.String:
 			dt, ok := v.(string)

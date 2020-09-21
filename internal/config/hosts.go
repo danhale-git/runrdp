@@ -29,17 +29,22 @@ func GetHost(key string) (Host, reflect.Value, error) {
 // IPHost defines a host to connect to using an IP or hostname.
 type IPHost struct {
 	Address string // IP address or hostname to connect to
-	//port    int
+	Port    int
 }
 
-// Socket returns this host's IP or hostname.
-func (h *IPHost) Socket() (string, error) {
+// GetAddress returns this host's IP or hostname.
+func (h *IPHost) GetAddress() (string, error) {
 	_, err := net.LookupHost(h.Address)
 	if err != nil {
 		return "", fmt.Errorf("address %s is not a valid hostname or ip: %s", h.Address, err)
 	}
 
 	return h.Address, nil // :<port>
+}
+
+// GetPort returns the host's configured port or an empty string if it's value is 0.
+func (h *IPHost) GetPort() int {
+	return h.Port
 }
 
 // Credentials returns nil as this type has no special credentials object.
@@ -56,11 +61,11 @@ type EC2Host struct {
 	Region      string
 	IncludeTags []string
 	ExcludeTags []string
-	//Port    int
+	Port        int
 }
 
-// Socket returns the public or private IP address of this instance based on the value of the Private field.
-func (h *EC2Host) Socket() (string, error) {
+// GetAddress returns the public or private IP address of this instance based on the value of the Private field.
+func (h *EC2Host) GetAddress() (string, error) {
 	sess := ec2instances.NewSession(h.Profile, h.Region)
 
 	var instance *ec2.Instance
@@ -99,6 +104,11 @@ func (h *EC2Host) Socket() (string, error) {
 	}
 
 	return *instance.PublicIpAddress, nil // :<port>
+}
+
+// GetPort returns the host's configured port or an empty string if it's value is 0.
+func (h *EC2Host) GetPort() int {
+	return h.Port
 }
 
 // Credentials returns the special credentials type EC2PasswordCred if the GetCred field is true, or nil if it is not.

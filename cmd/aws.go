@@ -47,7 +47,7 @@ func awsCmdRun(_ *cobra.Command, _ []string) {
 		}
 	}
 
-	socket, err := host.Socket()
+	socket, err := host.GetAddress()
 	if err == nil {
 		rdp.Connect(socket, username, password)
 	} else {
