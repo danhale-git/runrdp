@@ -10,6 +10,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	// DefaultConfigName is the name of the default config file. This is the config which will be merged with the
+	// given command line flags.
+	DefaultConfigName = "config"
+)
+
 // Configuration load multiple configuration files into individual viper instances and creates structs representing
 // the configured hosts and credential sources.
 type Configuration struct {
@@ -18,7 +24,7 @@ type Configuration struct {
 	Creds  map[string]*Cred        // Cred configs by host key name
 	Proxys map[string]*Host        // Host Proxys by host key name
 
-	creds map[string]Cred // Cred configs by cred key name
+	creds map[string]Cred // All unique Cred configs, by cred key name
 }
 
 // Host can return a hostname or IP address and optionally a port and credential name to use.
@@ -49,9 +55,28 @@ func (c *Configuration) Get(key string) (interface{}, error) {
 func (c *Configuration) ReadConfigFiles() {
 	c.Data = make(map[string]*viper.Viper)
 
-	for _, configFile := range configFileNames() {
-		c.Data[configFile] = readFile(configFile)
+	for _, fileName := range configFileNames() {
+		newConfig := readFile(fileName)
+		err := validateConfig(newConfig)
+
+		if err != nil {
+			fmt.Printf("Config file '%s' is invalid: %s\n", fileName, err)
+		} else {
+			c.Data[fileName] = newConfig
+		}
 	}
+}
+
+func validateConfig(v *viper.Viper) error {
+	for _, key := range v.AllKeys() {
+		topLevelKey := strings.Split(key, ".")[0]
+		if topLevelKey != "host" && topLevelKey != "cred" {
+			return fmt.Errorf("%s: user config file entry keys must start with 'host.' or 'cred.': use default"+
+				" config file '%s' for all other entries", key, DefaultConfigName)
+		}
+	}
+
+	return nil
 }
 
 func configFileNames() []string {
@@ -65,6 +90,10 @@ func configFileNames() []string {
 	for _, f := range files {
 		n := f.Name()
 		if strings.TrimSpace(n) == "" {
+			continue
+		}
+
+		if n == DefaultConfigName {
 			continue
 		}
 

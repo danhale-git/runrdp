@@ -7,14 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/danhale-git/runrdp/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-const (
-	// DefaultConfigName is the name of the default config file. This is the config which will be merged with the
-	// given command line flags.
-	DefaultConfigName = "config"
 )
 
 // configureCmd represents the configure command
@@ -116,7 +111,7 @@ func checkDefaultConfig() bool {
 	}
 
 	return CheckExistence(
-		filepath.Join(configRoot, DefaultConfigName),
+		filepath.Join(configRoot, config.DefaultConfigName),
 		"default config file",
 		false,
 	)

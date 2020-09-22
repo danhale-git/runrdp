@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -131,6 +132,12 @@ func initConfig() {
 	// Read the file 'config' into the default viper if it exists
 	loadMainConfig()
 
+	err := validateMainConfig()
+
+	if err != nil {
+		log.Fatalf("Default config is invalid: %s", err)
+	}
+
 	// Read all config files into separate viper instances
 	// This includes 'config' which is read a second time here so it may include host and cred configurations
 	configuration.ReadConfigFiles()
@@ -139,13 +146,13 @@ func initConfig() {
 
 func loadMainConfig() {
 	root := viper.GetString("config-root")
-	filePath := viper.GetString(DefaultConfigName)
+	filePath := viper.GetString(config.DefaultConfigName)
 
 	if filePath != "" {
 		viper.SetConfigFile(filePath)
 	} else {
 		viper.AddConfigPath(root)
-		viper.SetConfigName(DefaultConfigName)
+		viper.SetConfigName(config.DefaultConfigName)
 	}
 
 	viper.SetConfigType("toml")
@@ -156,4 +163,16 @@ func loadMainConfig() {
 
 	// No default config is required so do nothing if it isn't found
 	_ = viper.ReadInConfig()
+}
+
+func validateMainConfig() error {
+	for _, key := range viper.AllKeys() {
+		topLevelKey := strings.Split(key, ".")[0]
+		if topLevelKey == "host" || topLevelKey == "cred" {
+			return fmt.Errorf("'%s': default config file ('%s') may not contain host or cred entries: run "+
+				"`runrdp configure`", key, config.DefaultConfigName)
+		}
+	}
+
+	return nil
 }
