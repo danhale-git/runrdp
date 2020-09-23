@@ -105,6 +105,25 @@ func NewSession(profile, region string) ec2iface.EC2API {
 	return ec2.New(sess)
 }
 
+// GetInstance abstracts retrieving an EC2 instance from the AWS API. If an ID is provided, that instance will be
+// requested, otherwise the given tag filter will be used to search for the instance.
+func GetInstance(svc ec2iface.EC2API, id, tagSeparator string, include, exclude []string) (*ec2.Instance, error) {
+	switch {
+	case id != "":
+		return InstanceFromID(svc, id)
+	case len(include) > 0:
+		filter := Tags{
+			IncludeTags: include,
+			ExcludeTags: exclude,
+			Separator:   tagSeparator,
+		}
+
+		return InstanceFromTagFilter(svc, filter)
+	default:
+		return nil, fmt.Errorf("no includetags or id field in config, must provide one")
+	}
+}
+
 // InstanceFromID returns the details of the AWS EC2 instance with the given ID or an error if it isn't found.
 func InstanceFromID(svc ec2iface.EC2API, id string) (*ec2.Instance, error) {
 	name := "instance-id"

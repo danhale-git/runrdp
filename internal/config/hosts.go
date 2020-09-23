@@ -5,10 +5,11 @@ import (
 	"net"
 	"reflect"
 
+	"github.com/spf13/viper"
+
 	"github.com/danhale-git/runrdp/internal/aws/ec2instances"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/spf13/viper"
 )
 
 // GetHost returns a host struct and it's reflect.Value based on the given type key.
@@ -66,33 +67,18 @@ type EC2Host struct {
 
 // GetAddress returns the public or private IP address of this instance based on the value of the Private field.
 func (h *EC2Host) GetAddress() (string, error) {
-	sess := ec2instances.NewSession(h.Profile, h.Region)
+	svc := ec2instances.NewSession(h.Profile, h.Region)
 
-	var instance *ec2.Instance
+	instance, err := ec2instances.GetInstance(
+		svc,
+		h.ID,
+		viper.GetString("tag-separator"),
+		h.IncludeTags,
+		h.ExcludeTags,
+	)
 
-	var err error
-
-	switch {
-	case h.ID != "":
-		instance, err = ec2instances.InstanceFromID(sess, h.ID)
-		if err != nil {
-			return "", fmt.Errorf("getting ec2 instance by id: %s", err)
-		}
-	case h.IncludeTags != nil:
-		filter := ec2instances.Tags{
-			IncludeTags: h.IncludeTags,
-			ExcludeTags: h.ExcludeTags,
-			Separator:   viper.GetString("tag-separator"),
-		}
-		instance, err = ec2instances.InstanceFromTagFilter(sess, filter)
-
-		if err != nil {
-			return "", fmt.Errorf("getting ec2 instance by tag filter: %s", err)
-		}
-
-		h.ID = *instance.InstanceId
-	default:
-		return "", fmt.Errorf("no tag filters and no instance id in config, must provide one")
+	if err != nil {
+		return "", fmt.Errorf("getting ec2 instance: %s", err)
 	}
 
 	if *instance.State.Name != ec2.InstanceStateNameRunning {

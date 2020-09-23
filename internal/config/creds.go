@@ -30,7 +30,13 @@ type EC2PasswordCred struct {
 // Retrieve returns the administrator credentials for this instance or exists if unable to retrieve them.
 func (p *EC2PasswordCred) Retrieve() (string, string, error) {
 	svc := ec2instances.NewSession(p.Host.Profile, p.Host.Region)
-	instance, err := ec2instances.InstanceFromID(svc, p.Host.ID)
+	instance, err := ec2instances.GetInstance(
+		svc,
+		p.Host.ID,
+		viper.GetString("tag-separator"),
+		p.Host.IncludeTags,
+		p.Host.ExcludeTags,
+	)
 
 	if err != nil {
 		return "", "", fmt.Errorf("getting ec2 instance: %s", err)
@@ -48,7 +54,7 @@ func (p *EC2PasswordCred) Retrieve() (string, string, error) {
 	// Get instance password
 	password, err := ec2instances.GetPassword(
 		svc,
-		p.Host.ID,
+		*instance.InstanceId,
 		keyData,
 	)
 	if err != nil {
