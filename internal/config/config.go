@@ -1,3 +1,7 @@
+// Package config facilitates the loading and referencing of multiple config files, each with their own viper.Viper
+// instance.
+/*
+ */
 package config
 
 import (
@@ -10,46 +14,195 @@ import (
 	"github.com/spf13/viper"
 )
 
+// DefaultConfigName is the name of the default config file. This is the config which will be merged with the
+// given command line flags.
+const DefaultConfigName = "config"
+
 const (
-	// DefaultConfigName is the name of the default config file. This is the config which will be merged with the
-	// given command line flags.
-	DefaultConfigName = "config"
+	globalHostCred GlobalHostFields = iota
+	globalHostProxy
+	globalHostAddress
+	globalHostPort
+	globalHostUsername
 )
 
-// Configuration load multiple configuration files into individual viper instances and creates structs representing
-// the configured hosts and credential sources.
-type Configuration struct {
-	Data   map[string]*viper.Viper // Data from individual config files
-	Hosts  map[string]Host         // Host configs
-	Creds  map[string]*Cred        // Cred configs by host key name
-	Proxys map[string]*Host        // Host Proxys by host key name
+// GlobalHostFields are the names of fields which may be configured in any host.
+type GlobalHostFields int
 
-	creds map[string]Cred // All unique Cred configs, by cred key name
+func (p GlobalHostFields) String() string {
+	return GlobalHostFieldNames()[p]
 }
 
-// Host can return a hostname or IP address and optionally a port and credential name to use.
+// GlobalHostFieldNames returns a slice of field name strings corresponding to GlobalHostFields
+func GlobalHostFieldNames() []string {
+	return []string{
+		"cred",
+		"proxy",
+		"address",
+		"port",
+		"username",
+	}
+}
+
+// InGlobalHostFieldNames returns true if the given name is in the list of global host field names
+func InGlobalHostFieldNames(name string) bool {
+	for _, n := range GlobalHostFieldNames() {
+		if n == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Host can return a hostname or IP address and optionally a port and reference to a cred config.
 type Host interface {
-	GetAddress() (string, error) // Host.GetAddress is called first
-	GetPort() int
-	Credentials() Cred // Host.Credentials is called second
+	Socket() (string, string, error)
 }
 
 // Cred can return valid credentials used to authenticate and RDP session.
 type Cred interface {
-	Retrieve() (string, string, error) // Cred.Credentials is called third
+	Retrieve() (string, string, error)
 }
 
-/*// Get searches data from all config files and returns the value of the given key if it exists or an error if it
-// doesn't.
-func (c *Configuration) Get(key string) (interface{}, error) {
-	for _, cfg := range c.Data {
-		if cfg.IsSet(key) {
-			return cfg.Get(key), nil
+// Configuration loads multiple configuration files into individual viper instances and creates structs representing
+// the configured hosts and credential sources.
+//
+// HostGlobals will always contain all possible global field names for each host. The values will be empty strings if
+// a field was not included in the config file.
+type Configuration struct {
+	Data        map[string]*viper.Viper      // Data from individual config files
+	Hosts       map[string]Host              // Host configs
+	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]
+
+	creds map[string]Cred // All unique Cred configs, by cred key name
+}
+
+// HostExists returns true if the given host key has been configured and successfully loaded
+func (c *Configuration) HostExists(key string) bool {
+	_, ok := c.Hosts[key]
+	return ok
+}
+
+// HostCredentials returns the username and password for this host.
+//
+// Either a username or a password may be provided through various means. HostCredentials tries multiple sources in
+// order from least to most preferred, overwriting where new values are found.
+//
+// Sources:
+//
+// - Config file 'cred' field credentials
+//
+// - Host credentials
+//
+// - Config file global 'username' field (username only)
+func (c *Configuration) HostCredentials(key string) (string, string, error) {
+	var username, password string
+
+	h := c.Hosts[key]
+
+	credKey := c.HostGlobals[key][globalHostCred.String()]
+
+	if credKey != "" {
+		cred, ok := c.creds[credKey]
+		if !ok {
+			return "", "", fmt.Errorf("cred config '%s' not found", credKey)
+		}
+
+		err := overwriteValues(&username, &password, cred.Retrieve)
+
+		if err != nil {
+			return "", "", err
 		}
 	}
 
-	return nil, fmt.Errorf("config entry '%s' not found", key)
-}*/
+	hostCred, ok := h.(Cred)
+
+	if ok {
+		err := overwriteValues(&username, &password, hostCred.Retrieve)
+
+		if err != nil {
+			return "", "", err
+		}
+	}
+
+	uGlobal := c.HostGlobals[key][globalHostUsername.String()]
+
+	if uGlobal != "" {
+		username = uGlobal
+	}
+
+	return username, password, nil
+}
+
+// HostSocket returns the IP/hostname and port for this host.
+//
+// Either a hostname or a port may be provided through various means. HostSocket tries multiple sources in
+// order from least to most preferred, overwriting where new values are found.
+//
+// If noProxy is true, the config file 'proxy' global field is ignored.
+//
+// Sources:
+//
+// - Host socket
+//
+// - Config file global 'address' and 'port' fields
+//
+// - Config file global 'proxy' field socket address (address only)
+func (c *Configuration) HostSocket(key string, noProxy bool) (string, string, error) {
+	h := c.Hosts[key]
+
+	address, port, err := h.Socket()
+	if err != nil {
+		return "", "", err
+	}
+
+	_ = overwriteValues(
+		&address,
+		&port,
+		func() (string, string, error) {
+			return c.HostGlobals[key][globalHostAddress.String()], c.HostGlobals[key][globalHostPort.String()], nil
+		},
+	)
+
+	proxyKey := c.HostGlobals[key][globalHostProxy.String()]
+	if proxyKey != "" && !noProxy {
+		if c.HostExists(proxyKey) {
+			aProxy, _, err := c.HostSocket(proxyKey, true)
+
+			if err != nil {
+				return "", "", fmt.Errorf("retrieving socket for proxy host '%s': %s", proxyKey, err)
+			}
+
+			if aProxy != "" {
+				address = aProxy
+			}
+		} else {
+			return "", "", fmt.Errorf("proxy host '%s' does not exist", proxyKey)
+		}
+	}
+
+	return address, port, nil
+}
+
+// Assign the results of newValues to a and b respectively, unless they are empty strings.
+func overwriteValues(a, b *string, newValues func() (string, string, error)) error {
+	aNew, bNew, err := newValues()
+
+	if err != nil {
+		return err
+	}
+
+	if aNew != "" {
+		*a = aNew
+	}
+
+	if bNew != "" {
+		*b = bNew
+	}
+
+	return nil
+}
 
 // ReadConfigFiles reads each file in the config directory as an individual Viper instance.
 func (c *Configuration) ReadConfigFiles() {
@@ -122,8 +275,7 @@ func readFile(name string) *viper.Viper {
 // BuildData constructs Host and Cred objects from all available config data.
 func (c *Configuration) BuildData() {
 	c.Hosts = make(map[string]Host)
-	c.Creds = make(map[string]*Cred)
-	c.Proxys = make(map[string]*Host)
+	c.HostGlobals = make(map[string]map[string]string)
 	c.creds = make(map[string]Cred)
 
 	c.loadCredentials(c.get("cred"))
@@ -176,12 +328,14 @@ func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{})
 		for itemKey, data := range item {
 			host, val, err := GetHost(typeKey)
 
+			d := data.(map[string]interface{})
+
 			if err != nil {
 				fmt.Printf("Failed to load host '%s': %s\n", itemKey, err)
 				continue
 			}
 
-			err = setFields(val, data.(map[string]interface{}))
+			err = setFields(val, d)
 
 			if err != nil {
 				fmt.Printf("Failed to load host '%s': %s\n", itemKey, err)
@@ -189,50 +343,14 @@ func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{})
 			}
 
 			c.Hosts[itemKey] = host
-			c.Creds[itemKey] = c.hostCred(data.(map[string]interface{}))
+			c.HostGlobals[itemKey] = make(map[string]string)
+
+			for _, global := range GlobalHostFieldNames() {
+				value, _ := d[global].(string)
+				c.HostGlobals[itemKey][global] = value
+			}
 		}
 	}
-
-	// Second pass now hosts are all loaded, to get proxy hosts
-	for _, item := range hostsConfig {
-		for itemKey, data := range item {
-			c.Proxys[itemKey] = c.hostProxy(data.(map[string]interface{}))
-		}
-	}
-}
-
-// hostCred returns a pointer to the Cred referenced by the cred field in this host. If no 'cred' field is defined, nil
-// is silently returned (the field is optional).
-func (c *Configuration) hostCred(data map[string]interface{}) *Cred {
-	cKey, ok := data["cred"]
-	if !ok {
-		return nil
-	}
-
-	cred, ok := c.creds[cKey.(string)]
-	if !ok {
-		fmt.Printf("Credentials '%s' not found\n", cKey)
-		return &cred
-	}
-
-	return &cred
-}
-
-// hostProxy returns a pointer to the Host referenced by the proxy field in this host config. If no 'proxy' field is
-// defined, nil is silently returned (the field is optional).
-func (c *Configuration) hostProxy(data map[string]interface{}) *Host {
-	pKey, ok := data["proxy"]
-	if !ok {
-		return nil
-	}
-
-	proxy, ok := c.Hosts[pKey.(string)]
-	if !ok {
-		fmt.Printf("Host '%s' not found\n", pKey)
-		return &proxy
-	}
-
-	return &proxy
 }
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
@@ -247,10 +365,15 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 		fieldName := strings.ToLower(structType.Field(i).Name)
 
 		valueMap[fieldName] = v
+
+		if InGlobalHostFieldNames(fieldName) {
+			panic(fmt.Sprintf("config type '%s' contains field '%s' which is a global host field name",
+				structType.Name(), fieldName))
+		}
 	}
 
 	for k, v := range data {
-		if k == "cred" || k == "proxy" {
+		if InGlobalHostFieldNames(k) {
 			continue
 		}
 

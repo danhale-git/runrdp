@@ -28,57 +28,104 @@ var rootCmd = &cobra.Command{
 	Args: func(cmd *cobra.Command, args []string) error {
 		return cobra.RangeArgs(1, 1)(cmd, args)
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		arg := args[0]
-		host, ok := configuration.Hosts[arg]
-		if ok {
-			var address string
-			var err error
-			// If a proxy was defined, use it's address
-			if configuration.Proxys[arg] != nil {
-				p := *configuration.Proxys[arg]
-				address, err = p.GetAddress()
-			} else {
-				address, err = host.GetAddress()
-			}
+	Run: Run,
+}
 
-			if err != nil {
-				fmt.Printf("Error retrieving host address: %s\n", err)
-				return
-			}
+// Run attempts to locate the given argument in the hosts config. If it is not a config entry the argument is validated
+// as a socket and a connection is attempted if validation passes.
+func Run(_ *cobra.Command, args []string) {
+	arg := args[0]
 
-			var username, password string
+	if configuration.HostExists(arg) {
+		fmt.Printf("Connecting to: %s\n", arg)
 
-			if cred := host.Credentials(); cred != nil {
-				username, password, err = cred.Retrieve()
-			} else if configuration.Creds[arg] != nil {
-				c := *configuration.Creds[arg]
-				username, password, err = c.Retrieve()
-			} else {
-				username, password = "", ""
-			}
+		address, port, err := configuration.HostSocket(arg, false)
 
-			if err != nil {
-				fmt.Printf("Error retrieving credentials: %s\n", err)
-			}
-
-			p := host.GetPort()
-			if p > 0 {
-				address = fmt.Sprintf("%s:%d", address, p)
-			}
-
-			rdp.Connect(address, username, password)
-
-		} else {
-			split := strings.Split(arg, ":")
-			_, err := net.LookupHost(split[0])
-			if err == nil {
-				rdp.Connect(arg, "", "")
-			} else {
-				fmt.Printf("'%s' is not a config entry, hostname or IP address\n", arg)
-			}
+		if err != nil {
+			log.Fatalf("error getting host socket: %s", err)
 		}
-	},
+
+		var username, password string
+		username, password, err = configuration.HostCredentials(arg)
+
+		if err != nil {
+			fmt.Printf("error getting host credentials: %s\n", err)
+		}
+
+		clAddress := viper.GetString("address")
+
+		if clAddress != "" {
+			address = clAddress
+		}
+
+		clPort := viper.GetString("port")
+
+		if clPort != "" {
+			port = clPort
+		}
+
+		if port == "" {
+			port = "3389"
+		}
+
+		socket := fmt.Sprintf("%s:%s", address, port)
+
+		rdp.Connect(socket, username, password)
+
+		return
+	}
+
+	if SocketArgument(arg) {
+		return
+	}
+
+	fmt.Println(arg, "is not a hostname, ip address or config key.")
+}
+
+// SocketArgument checks if arg is 'host' or 'host:port' and attempts to connect if it is. It returns a bool indicating
+// whether it attempted to connect
+func SocketArgument(arg string) bool {
+	var address, port string
+
+	if strings.Contains(arg, ":") {
+		split := strings.Split(arg, ":")
+		address = split[0]
+		if len(split) > 1 {
+			port = split[1]
+		}
+	} else {
+		address = arg
+	}
+
+	if ValidateAddress(address) {
+		var socket string
+		if port != "" {
+			socket = fmt.Sprintf("%s:%s", address, port)
+		} else {
+			socket = address
+		}
+		rdp.Connect(
+			socket,
+			viper.GetString("username"),
+			viper.GetString("password"),
+		)
+
+		return true
+	}
+
+	return false
+}
+
+// ValidateAddress returns true if the given string parses to an IP address or resolves an IP address in the DNS.
+func ValidateAddress(address string) bool {
+	ip := net.ParseIP(address)
+	if ip != nil {
+		return true
+	} else if h, _ := net.LookupHost(address); len(h) > 0 {
+		return true
+	}
+
+	return false
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -101,6 +148,15 @@ func init() {
 	}
 
 	configRoot := filepath.Join(home, "/.runrdp/")
+
+	rootCmd.PersistentFlags().String(
+		"address", "",
+		"Hostname or IP address to connect to",
+	)
+	rootCmd.PersistentFlags().String(
+		"port", "",
+		"Port to connect over",
+	)
 
 	rootCmd.PersistentFlags().StringP(
 		"username", "u", "",

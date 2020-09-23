@@ -5,10 +5,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/danhale-git/runrdp/internal/config"
-
-	"github.com/danhale-git/runrdp/internal/rdp"
-
 	homedir "github.com/mitchellh/go-homedir"
 
 	"github.com/spf13/viper"
@@ -25,7 +21,7 @@ var awsCmd = &cobra.Command{
 }
 
 func awsCmdRun(_ *cobra.Command, _ []string) {
-	host := config.EC2Host{
+	/*host := config.EC2Host{
 		ID:      viper.GetString("ec2-id"),
 		Private: viper.GetBool("private"),
 		Profile: viper.GetString("profile"),
@@ -52,7 +48,7 @@ func awsCmdRun(_ *cobra.Command, _ []string) {
 		rdp.Connect(socket, username, password)
 	} else {
 		fmt.Printf("Error retrieving host address: %s\n", err)
-	}
+	}*/
 }
 
 func init() {

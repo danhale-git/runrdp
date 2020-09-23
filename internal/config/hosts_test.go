@@ -35,13 +35,13 @@ func testHosts(t *testing.T, hosts map[string]Host) {
 func testIPHost(t *testing.T, hosts map[string]Host) {
 	h, ok := hosts["iphosttest"]
 	if !ok {
-		t.Errorf("IPHost is not in Configuration.Hosts")
+		t.Errorf("BasicHost is not in Configuration.Hosts")
 		return
 	}
 
-	_, ok = h.(interface{}).(*IPHost)
+	_, ok = h.(interface{}).(*BasicHost)
 	if !ok {
-		t.Errorf("IPHost cannot be converted to type IPHost:\n%+v", h)
+		t.Errorf("BasicHost cannot be converted to type BasicHost:\n%+v", h)
 	}
 }
 

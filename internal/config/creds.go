@@ -22,20 +22,19 @@ func GetCredential(key string) (Cred, reflect.Value, error) {
 	}
 }
 
-// EC2PasswordCred implements Cred and retrieves the EC2 initial administrator credentials for the given EC2Host.
-type EC2PasswordCred struct {
-	Host *EC2Host // The EC2 host config
-}
-
 // Retrieve returns the administrator credentials for this instance or exists if unable to retrieve them.
-func (p *EC2PasswordCred) Retrieve() (string, string, error) {
-	svc := ec2instances.NewSession(p.Host.Profile, p.Host.Region)
+func (h *EC2Host) Retrieve() (string, string, error) {
+	if !h.GetCred {
+		return "", "", nil
+	}
+
+	svc := ec2instances.NewSession(h.Profile, h.Region)
 	instance, err := ec2instances.GetInstance(
 		svc,
-		p.Host.ID,
+		h.ID,
 		viper.GetString("tag-separator"),
-		p.Host.IncludeTags,
-		p.Host.ExcludeTags,
+		h.IncludeTags,
+		h.ExcludeTags,
 	)
 
 	if err != nil {
@@ -68,20 +67,20 @@ func (p *EC2PasswordCred) Retrieve() (string, string, error) {
 
 // SecretsManagerCred implements Cred and retrieves a username and password from AWS Secrets Manager.
 type SecretsManagerCred struct {
-	Username string
-	Password string
-	Profile  string
-	Region   string
+	UsernameID string
+	PasswordID string
+	Profile    string
+	Region     string
 }
 
 // Retrieve returns the values for the configured Secrets Manager keys.
 func (s *SecretsManagerCred) Retrieve() (string, string, error) {
-	username, err := secrets.Get(s.Profile, s.Region, s.Username)
+	username, err := secrets.Get(s.Profile, s.Region, s.UsernameID)
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving username: %s", err)
 	}
 
-	password, err := secrets.Get(s.Profile, s.Region, s.Password)
+	password, err := secrets.Get(s.Profile, s.Region, s.PasswordID)
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving password: %s", err)
 	}

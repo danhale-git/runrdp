@@ -8,8 +8,8 @@ import (
 func credTestData() string {
 	return `
 [cred.awssm.secretsmanagertest]
-    username = "TestInstanceUsername"
-    password = "TestInstancePassword"
+    usernameid = "TestInstanceUsername"
+    passwordid = "TestInstancePassword"
     region = "eu-west-2"`
 }
 
