@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -180,6 +181,12 @@ func init() {
 	rootCmd.PersistentFlags().String(
 		"tag-separator", ";",
 		"separator character for tags",
+	)
+
+	rootCmd.PersistentFlags().String(
+		"ssh-directory",
+		path.Join(home, ".ssh"),
+		"Directory containing SSH keys.",
 	)
 
 	err = viper.BindPFlags(rootCmd.PersistentFlags())
