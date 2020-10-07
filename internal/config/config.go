@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -76,6 +77,32 @@ type Configuration struct {
 	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]
 
 	creds map[string]Cred // All unique Cred configs, by cred key name
+}
+
+// HostsSortedByPattern returns a slice of host config key strings matching the given pattern.
+func (c *Configuration) HostsSortedByPattern(pattern string) []string {
+	keys := c.HostKeys()
+	sorter := levenshteinSort{
+		keys,
+		pattern,
+	}
+
+	sort.Sort(sorter)
+
+	return sorter.items
+}
+
+// HostKeys returns a slice containing the names of all loaded host config entries from all config files.
+func (c *Configuration) HostKeys() []string {
+	keys := make([]string, len(c.Hosts))
+	index := 0
+
+	for k := range c.Hosts {
+		keys[index] = k
+		index++
+	}
+
+	return keys
 }
 
 // HostExists returns true if the given host key has been configured and successfully loaded

@@ -37,41 +37,7 @@ func Run(_ *cobra.Command, args []string) {
 	arg := args[0]
 
 	if configuration.HostExists(arg) {
-		fmt.Printf("Connecting to: %s\n", arg)
-
-		address, port, err := configuration.HostSocket(arg, false)
-
-		if err != nil {
-			log.Fatalf("error getting host socket: %s", err)
-		}
-
-		var username, password string
-		username, password, err = configuration.HostCredentials(arg)
-
-		if err != nil {
-			fmt.Printf("error getting host credentials: %s\n", err)
-		}
-
-		clAddress := viper.GetString("address")
-
-		if clAddress != "" {
-			address = clAddress
-		}
-
-		clPort := viper.GetString("port")
-
-		if clPort != "" {
-			port = clPort
-		}
-
-		if port == "" {
-			port = "3389"
-		}
-
-		socket := fmt.Sprintf("%s:%s", address, port)
-
-		rdp.Connect(socket, username, password)
-
+		connectToHost(arg)
 		return
 	}
 
@@ -82,6 +48,43 @@ func Run(_ *cobra.Command, args []string) {
 	fmt.Println(arg, "is not a hostname, ip address or config key.")
 }
 
+func connectToHost(host string) {
+	fmt.Printf("Connecting to: %s\n", host)
+
+	address, port, err := configuration.HostSocket(host, false)
+
+	if err != nil {
+		log.Fatalf("error getting host socket: %s", err)
+	}
+
+	var username, password string
+	username, password, err = configuration.HostCredentials(host)
+
+	if err != nil {
+		fmt.Printf("error getting host credentials: %s\n", err)
+	}
+
+	clAddress := viper.GetString("address")
+
+	if clAddress != "" {
+		address = clAddress
+	}
+
+	clPort := viper.GetString("port")
+
+	if clPort != "" {
+		port = clPort
+	}
+
+	if port == "" {
+		port = "3389"
+	}
+
+	socket := fmt.Sprintf("%s:%s", address, port)
+
+	rdp.Connect(socket, username, password)
+}
+
 // SocketArgument checks if arg is 'host' or 'host:port' and attempts to connect if it is. It returns a bool indicating
 // whether it attempted to connect
 func SocketArgument(arg string) bool {
@@ -90,6 +93,7 @@ func SocketArgument(arg string) bool {
 	if strings.Contains(arg, ":") {
 		split := strings.Split(arg, ":")
 		address = split[0]
+
 		if len(split) > 1 {
 			port = split[1]
 		}
@@ -104,6 +108,7 @@ func SocketArgument(arg string) bool {
 		} else {
 			socket = address
 		}
+
 		rdp.Connect(
 			socket,
 			viper.GetString("username"),

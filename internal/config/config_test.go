@@ -53,3 +53,21 @@ func TestConfiguration_BuildData(t *testing.T) {
 	testHosts(t, c.Hosts)
 	testCreds(t, c.creds)
 }
+
+func TestConfiguration_HostsSortedByPattern(t *testing.T) {
+	c := Configuration{}
+	c.Hosts = make(map[string]Host)
+	c.Hosts["aa"] = &BasicHost{}
+	c.Hosts["ab"] = &BasicHost{}
+	c.Hosts["ac"] = &BasicHost{}
+	c.Hosts["ad"] = &BasicHost{}
+
+	s := c.HostsSortedByPattern("a")
+
+	want := len(c.Hosts)
+	got := len(s)
+
+	if got != want {
+		t.Errorf("Sorted host keys has different length to original map: want %d: god %d", want, got)
+	}
+}
