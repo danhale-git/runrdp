@@ -17,7 +17,7 @@ import (
 
 // DefaultConfigName is the name of the default config file. This is the config which will be merged with the
 // given command line flags.
-const DefaultConfigName = "config"
+const DefaultConfigName = "config.toml"
 
 const (
 	globalHostCred GlobalHostFields = iota

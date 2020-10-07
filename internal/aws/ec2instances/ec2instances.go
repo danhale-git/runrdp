@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path"
 	"path/filepath"
 	"strings"
@@ -223,8 +222,14 @@ func ReadPrivateKey(sshDirectory, keyName string) ([]byte, error) {
 	// Read the private key
 	privateKey, err := ioutil.ReadFile(path.Join(sshDirectory, keyName))
 	if err != nil {
+		names, err := fileNames(sshDirectory)
+
+		if err != nil {
+			return nil, err
+		}
+
 		// Try ignoring the extension
-		for _, d := range fileNames(sshDirectory) {
+		for _, d := range names {
 			noExt := d[:len(d)-len(filepath.Ext(d))]
 			if noExt == keyName {
 				return ioutil.ReadFile(path.Join(sshDirectory, d))
@@ -237,10 +242,10 @@ func ReadPrivateKey(sshDirectory, keyName string) ([]byte, error) {
 	return nil, fmt.Errorf("private key %s not found in directory %s", keyName, sshDirectory)
 }
 
-func fileNames(directory string) []string {
+func fileNames(directory string) ([]string, error) {
 	files, err := ioutil.ReadDir(directory)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("reading SSH key directory '%s': %s", directory, err)
 	}
 
 	names := make([]string, 0)
@@ -254,7 +259,7 @@ func fileNames(directory string) []string {
 		names = append(names, n)
 	}
 
-	return names
+	return names, nil
 }
 
 func getInstances(svc ec2iface.EC2API, input *ec2.DescribeInstancesInput) ([]ec2.Instance, error) {
