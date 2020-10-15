@@ -12,8 +12,12 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
+// DefaultPort is the standard port for RDP connections.
+const DefaultPort = "3389"
+
 var path = "connection.rdp"
 
+// Connect writes an RDP file, runs it then deletes it 1 second later.
 func Connect(host, user, pass string) {
 	cmdlineUser := viper.GetString("username")
 	cmdlinePass := viper.GetString("password")

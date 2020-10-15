@@ -73,6 +73,7 @@ type SSHTunnel struct {
 	Host      string // Config key for the intermediate host which will forward the connection.
 	LocalPort string // Port which the intermediate host listens on.
 	Key       string // Full path to the key file for
+	User      string // The SSH user to connect as
 }
 
 // Configuration loads multiple configuration files into individual viper instances and creates structs representing
@@ -227,7 +228,7 @@ func (c *Configuration) HostSocket(key string, noProxy bool) (string, string, er
 func (c *Configuration) HostTunnel(key string) (*SSHTunnel, error) {
 	k, ok := c.HostGlobals[key][globalHostTunnel.String()]
 
-	if !ok {
+	if !ok || k == "" {
 		return nil, nil
 	}
 
