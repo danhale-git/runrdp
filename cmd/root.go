@@ -52,6 +52,13 @@ func Run(_ *cobra.Command, args []string) {
 func connectToHost(host string) {
 	fmt.Printf("Connecting to: %s\n", host)
 
+	t, err := configuration.HostTunnel(host)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(t)
+
 	address, port, err := configuration.HostSocket(host, false)
 
 	if err != nil {
