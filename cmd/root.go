@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -52,6 +53,7 @@ func Run(_ *cobra.Command, args []string) {
 func connectToHost(host string) {
 	fmt.Printf("Connecting to: %s\n", host)
 
+	// Get the host socket from configuration.
 	address, port, err := configuration.HostSocket(host, false)
 
 	if err != nil {
@@ -68,22 +70,71 @@ func connectToHost(host string) {
 	clAddress := viper.GetString("address")
 
 	if clAddress != "" {
+		// Address command line flag was passed, override configuration.
 		address = clAddress
 	}
 
 	clPort := viper.GetString("port")
 
 	if clPort != "" {
+		// Port command line flag was passed, override configuration.
 		port = clPort
 	}
 
 	if port == "" {
-		port = "3389"
+		// No port was given, use the standard RDP port.
+		port = rdp.DefaultPort
 	}
 
 	socket := fmt.Sprintf("%s:%s", address, port)
 
+	t, err := configuration.HostTunnel(host)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Open an ssh tunnel and replace socket with the localhost:localport tunnel socket.
+	if t != nil {
+		socket, err = sshTunnel(t, address, port)
+		if err != nil {
+			log.Fatalf("opening ssh tunnel: %s", err)
+		}
+	}
+
 	rdp.Connect(socket, username, password)
+}
+
+// sshTunnel runs the following ssh command using exec:
+//
+// ssh -i <key file> -N -L <local port>:<host address>:<remote port> <username>@<forwarding server>
+func sshTunnel(tunnel *config.SSHTunnel, address, port string) (string, error) {
+	server, _, err := configuration.HostSocket(tunnel.Host, true)
+	if err != nil {
+		return "", fmt.Errorf("getting ssh tunnel server address: %s", err)
+	}
+
+	t := fmt.Sprintf("%s:%s:%s", tunnel.LocalPort, address, port)
+	u := fmt.Sprintf("%s@%s", tunnel.User, server)
+
+	command := exec.Command("ssh", "-i", tunnel.Key, "-N", "-L", t, u)
+
+	fmt.Printf("ssh tunnel open %s %s\n", t, u)
+
+	err = command.Start()
+	if err != nil {
+		return "", fmt.Errorf("starting command '%s': %s", command.String(), err)
+	}
+
+	go func() {
+		cmdErr := command.Wait()
+		if cmdErr != nil {
+			fmt.Printf("ssh tunnel command exited with error: %s\n", cmdErr)
+		}
+
+		fmt.Println("ssh tunnel closed")
+	}()
+
+	return fmt.Sprintf("localhost:%s", tunnel.LocalPort), nil
 }
 
 // SocketArgument checks if arg is 'host' or 'host:port' and attempts to connect if it is. It returns a bool indicating

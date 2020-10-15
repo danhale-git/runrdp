@@ -25,6 +25,7 @@ const (
 	globalHostAddress
 	globalHostPort
 	globalHostUsername
+	globalHostTunnel
 )
 
 // GlobalHostFields are the names of fields which may be configured in any host.
@@ -42,6 +43,7 @@ func GlobalHostFieldNames() []string {
 		"address",
 		"port",
 		"username",
+		"tunnel",
 	}
 }
 
@@ -66,6 +68,14 @@ type Cred interface {
 	Retrieve() (string, string, error)
 }
 
+// SSHTunnel has the details for opening an 'SSH tunnel' (SSH port forwarding) including a reference to a Host config.
+type SSHTunnel struct {
+	Host      string // Config key for the intermediate host which will forward the connection.
+	LocalPort string // Port which the intermediate host listens on.
+	Key       string // Full path to the key file for
+	User      string // The SSH user to connect as
+}
+
 // Configuration loads multiple configuration files into individual viper instances and creates structs representing
 // the configured hosts and credential sources.
 //
@@ -76,7 +86,8 @@ type Configuration struct {
 	Hosts       map[string]Host              // Host configs
 	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]
 
-	creds map[string]Cred // All unique Cred configs, by cred key name
+	creds   map[string]Cred      // All unique Cred configs, by cred key name
+	tunnels map[string]SSHTunnel // SSHTunnel configs
 }
 
 // HostsSortedByPattern returns a slice of host config key strings matching the given pattern.
@@ -212,6 +223,24 @@ func (c *Configuration) HostSocket(key string, noProxy bool) (string, string, er
 	return address, port, nil
 }
 
+// HostTunnel returns a pointer to the SSH tunnel associated with this host, if there is one. If no tunnel is configured
+// the pointer will be nil.
+func (c *Configuration) HostTunnel(key string) (*SSHTunnel, error) {
+	k, ok := c.HostGlobals[key][globalHostTunnel.String()]
+
+	if !ok || k == "" {
+		return nil, nil
+	}
+
+	t, ok := c.tunnels[k]
+
+	if !ok {
+		return nil, fmt.Errorf("host '%s' references ssh tunnel '%s' which does not appear in config", key, k)
+	}
+
+	return &t, nil
+}
+
 // Assign the results of newValues to a and b respectively, unless they are empty strings.
 func overwriteValues(a, b *string, newValues func() (string, string, error)) error {
 	aNew, bNew, err := newValues()
@@ -250,7 +279,7 @@ func (c *Configuration) ReadConfigFiles() {
 func validateConfig(v *viper.Viper) error {
 	for _, key := range v.AllKeys() {
 		topLevelKey := strings.Split(key, ".")[0]
-		if topLevelKey != "host" && topLevelKey != "cred" {
+		if topLevelKey != "host" && topLevelKey != "cred" && topLevelKey != "tunnel" {
 			return fmt.Errorf("%s: user config file entry keys must start with 'host.' or 'cred.': use default"+
 				" config file '%s' for all other entries", key, DefaultConfigName)
 		}
@@ -304,28 +333,57 @@ func (c *Configuration) BuildData() {
 	c.Hosts = make(map[string]Host)
 	c.HostGlobals = make(map[string]map[string]string)
 	c.creds = make(map[string]Cred)
+	c.tunnels = make(map[string]SSHTunnel)
 
-	c.loadCredentials(c.get("cred"))
-	c.loadHosts(c.get("host"))
+	c.loadCredentials(c.getNested("cred"))
+	c.loadHosts(c.getNested("host"))
+	c.loadTunnels(c.get("tunnel"))
 }
 
-// get returns the all configured items under the given key, from all config files.
-func (c *Configuration) get(key string) map[string]map[string]interface{} {
+// getNested returns the all configured items under the given key, from all config files.
+func (c *Configuration) getNested(key string) map[string]map[string]interface{} {
 	var allConfigs = make(map[string]map[string]interface{})
 
-	for _, cfg := range c.Data {
-		for kind, items := range cfg.GetStringMap(key) {
-			if _, ok := allConfigs[kind]; !ok {
-				allConfigs[kind] = make(map[string]interface{})
-			}
+	for kind, items := range c.get(key) {
+		if _, ok := allConfigs[kind]; !ok {
+			allConfigs[kind] = make(map[string]interface{})
+		}
 
-			for k, v := range items.(map[string]interface{}) {
-				allConfigs[kind][k] = v
-			}
+		for k, v := range items.(map[string]interface{}) {
+			allConfigs[kind][k] = v
 		}
 	}
 
 	return allConfigs
+}
+
+// getNested returns the all configured items under the given key, from all config files.
+func (c *Configuration) get(key string) map[string]interface{} {
+	var allConfigs = make(map[string]interface{})
+
+	for _, cfg := range c.Data {
+		for k, v := range cfg.GetStringMap(key) {
+			allConfigs[k] = v
+		}
+	}
+
+	return allConfigs
+}
+
+func (c *Configuration) loadTunnels(tunnelsConfig map[string]interface{}) {
+	for itemKey, data := range tunnelsConfig {
+		tunnel := SSHTunnel{}
+		val := reflect.ValueOf(&tunnel).Elem()
+
+		err := setFields(val, data.(map[string]interface{}))
+
+		if err != nil {
+			fmt.Printf("Failed to load tunnel '%s': %s\n", itemKey, err)
+			continue
+		}
+
+		c.tunnels[itemKey] = tunnel
+	}
 }
 
 func (c *Configuration) loadCredentials(credentialsConfig map[string]map[string]interface{}) {
