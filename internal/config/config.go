@@ -9,9 +9,9 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 
+	"github.com/sahilm/fuzzy"
 	"github.com/spf13/viper"
 )
 
@@ -93,14 +93,15 @@ type Configuration struct {
 // HostsSortedByPattern returns a slice of host config key strings matching the given pattern.
 func (c *Configuration) HostsSortedByPattern(pattern string) []string {
 	keys := c.HostKeys()
-	sorter := levenshteinSort{
-		keys,
-		pattern,
+
+	sorted := make([]string, len(keys))
+
+	matches := fuzzy.Find(pattern, keys)
+	for i, m := range matches {
+		sorted[i] = m.Str
 	}
 
-	sort.Sort(sorter)
-
-	return sorter.items
+	return sorted
 }
 
 // HostKeys returns a slice containing the names of all loaded host config entries from all config files.

@@ -24,6 +24,9 @@ var findCmd = &cobra.Command{
 
 		c := minInt(viper.GetInt("count"), len(sortedHostKeys))
 		for i := 0; i < c; i++ {
+			if sortedHostKeys[i] == "" {
+				break
+			}
 			fmt.Printf("%d. %s\n", i+1, sortedHostKeys[i])
 		}
 
