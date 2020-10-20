@@ -277,7 +277,7 @@ func loadMainConfig() {
 	viper.SetConfigType("toml")
 	viper.SetConfigFile(filepath.Join(
 		viper.GetString("config-root"),
-		"config",
+		config.DefaultConfigName,
 	))
 
 	// No default config is required so do nothing if it isn't found
