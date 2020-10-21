@@ -428,15 +428,33 @@ func (c *Configuration) loadHosts(hostsConfig map[string]map[string]interface{})
 				continue
 			}
 
-			c.Hosts[itemKey] = host
-			c.HostGlobals[itemKey] = make(map[string]string)
+			globals, err := getGlobals(d)
 
-			for _, global := range GlobalHostFieldNames() {
-				value, _ := d[global].(string)
-				c.HostGlobals[itemKey][global] = value
+			if err != nil {
+				fmt.Printf("Failed to load host '%s': %s\n", itemKey, err)
+				continue
 			}
+
+			c.Hosts[itemKey] = host
+			c.HostGlobals[itemKey] = globals
 		}
 	}
+}
+
+func getGlobals(data map[string]interface{}) (map[string]string, error) {
+	globals := make(map[string]string)
+
+	for _, global := range GlobalHostFieldNames() {
+		value, ok := data[global].(string)
+
+		if data[global] != nil && !ok {
+			return nil, fmt.Errorf("global field '%s' must be a string", global)
+		}
+
+		globals[global] = value
+	}
+
+	return globals, nil
 }
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
