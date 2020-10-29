@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+
 	"github.com/spf13/viper"
 
 	"github.com/danhale-git/runrdp/internal/aws/ec2instances"
@@ -45,19 +47,13 @@ type EC2Host struct {
 	Region      string
 	IncludeTags []string
 	ExcludeTags []string
+
+	svc ec2iface.EC2API
 }
 
 // Socket returns the public or private IP address of this instance based on the value of the Private field.
 func (h *EC2Host) Socket() (string, string, error) {
-	svc := ec2instances.NewSession(h.Profile, h.Region)
-
-	instance, err := ec2instances.GetInstance(
-		svc,
-		h.ID,
-		viper.GetString("tag-separator"),
-		h.IncludeTags,
-		h.ExcludeTags,
-	)
+	instance, err := h.Instance()
 
 	if err != nil {
 		return "", "", fmt.Errorf("getting ec2 instance: %s", err)
@@ -72,4 +68,30 @@ func (h *EC2Host) Socket() (string, string, error) {
 	}
 
 	return *instance.PublicIpAddress, "", nil
+}
+
+// Instance returns the EC2 instance defined by this host. The Host ID field will be set if it is empty, so future calls
+// will use the ID instead of tag filters to identify the instance.
+func (h *EC2Host) Instance() (*ec2.Instance, error) {
+	if h.svc == nil {
+		h.svc = ec2instances.NewSession(h.Profile, h.Region)
+	}
+
+	instance, err := ec2instances.GetInstance(
+		h.svc,
+		h.ID,
+		viper.GetString("tag-separator"),
+		h.IncludeTags,
+		h.ExcludeTags,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if h.ID == "" {
+		h.ID = *instance.InstanceId
+	}
+
+	return instance, nil
 }

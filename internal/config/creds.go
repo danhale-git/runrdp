@@ -22,20 +22,14 @@ func GetCredential(key string) (Cred, reflect.Value, error) {
 	}
 }
 
-// Retrieve returns the administrator credentials for this instance or exists if unable to retrieve them.
+// Retrieve returns the administrator credentials for this instance or an error if unable to retrieve them. If the
+// getcred field is not set it returns empty strings and no error.
 func (h *EC2Host) Retrieve() (string, string, error) {
 	if !h.GetCred {
 		return "", "", nil
 	}
 
-	svc := ec2instances.NewSession(h.Profile, h.Region)
-	instance, err := ec2instances.GetInstance(
-		svc,
-		h.ID,
-		viper.GetString("tag-separator"),
-		h.IncludeTags,
-		h.ExcludeTags,
-	)
+	instance, err := h.Instance()
 
 	if err != nil {
 		return "", "", fmt.Errorf("getting ec2 instance: %s", err)
@@ -52,7 +46,7 @@ func (h *EC2Host) Retrieve() (string, string, error) {
 
 	// Get instance password
 	password, err := ec2instances.GetPassword(
-		svc,
+		h.svc,
 		*instance.InstanceId,
 		keyData,
 	)

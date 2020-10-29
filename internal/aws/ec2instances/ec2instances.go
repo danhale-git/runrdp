@@ -1,14 +1,18 @@
 package ec2instances
 
 import (
+	"bufio"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
@@ -125,8 +129,7 @@ func GetInstance(svc ec2iface.EC2API, id, tagSeparator string, include, exclude 
 
 // InstanceFromID returns the details of the AWS EC2 instance with the given ID or an error if it isn't found.
 func InstanceFromID(svc ec2iface.EC2API, id string) (*ec2.Instance, error) {
-	name := "instance-id"
-	filters := []*ec2.Filter{{Name: &name, Values: []*string{&id}}}
+	filters := []*ec2.Filter{{Name: aws.String("instance-id"), Values: []*string{&id}}}
 	instances, err := getInstances(svc, &ec2.DescribeInstancesInput{Filters: filters})
 
 	if err != nil {
@@ -172,12 +175,45 @@ func InstanceFromTagFilter(svc ec2iface.EC2API, tags Tags) (*ec2.Instance, error
 
 	switch {
 	case len(eligible) > 1:
-		return nil, fmt.Errorf("%d instances found with given tags, must identify a single instance", len(eligible))
+		fmt.Println("Multiple EC2 instances found with given tags:")
+
+		for i := range eligible {
+			fmt.Printf("%d. %s\n", i+1, instanceName(&eligible[i]))
+		}
+
+		fmt.Print("\nEnter number to connect: ")
+
+		// Read int from command line input
+		reader := bufio.NewReader(os.Stdin)
+		text, err := reader.ReadString('\n')
+
+		if err != nil {
+			panic(err)
+		}
+
+		selected, err := strconv.Atoi(strings.Trim(text, "\r\n"))
+
+		// User entered an invalid value, assume they want to cancel
+		if err != nil || selected > len(eligible) || selected == 0 {
+			return nil, errors.New("no instance was chosen")
+		}
+
+		return &eligible[selected-1], nil
 	case len(eligible) == 0:
 		return nil, fmt.Errorf("no instances found with matching tags")
 	default:
 		return &eligible[0], nil
 	}
+}
+
+func instanceName(instance *ec2.Instance) string {
+	for _, tag := range instance.Tags {
+		if *tag.Key == "Name" {
+			return *tag.Value
+		}
+	}
+
+	return ""
 }
 
 func containsOneOfTags(instanceTags []*ec2.Tag, givenTags []string) bool {
