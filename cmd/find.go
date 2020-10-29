@@ -21,6 +21,10 @@ var findCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		sortedHostKeys := configuration.HostsSortedByPattern(args[0])
+		if len(sortedHostKeys) == 0 {
+			fmt.Println("No host configurations have been loaded.")
+			return
+		}
 
 		c := minInt(viper.GetInt("count"), len(sortedHostKeys))
 		for i := 0; i < c; i++ {
@@ -45,7 +49,7 @@ var findCmd = &cobra.Command{
 			return
 		}
 
-		if selected >= c {
+		if selected < 0 || selected > c {
 			fmt.Printf("Host number %d is not listed. Use -c <value> to list more hosts.\n", selected)
 			return
 		}
