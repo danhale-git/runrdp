@@ -1,59 +1,60 @@
 # RunRDP
-RunRDP is a tool for running RDP sessions from the command line and configuring Desktops in a TOML file. It is not a stand alone RDP client, it runs your default RDP client.
 
-The tool works by writing a .rdp file, running it then deleting it immediately.
+RunRDP is a tool for configuring Windows Remote Desktop hosts in text files and starting RDP sessions from the command line.
+It is not a standalone RDP client, it runs the default RDP client.
 
-The goal of the tool is to enable powerful provide specific Desktop configuration in text files and easy initiation of RDP connections from command line.
+Configuration parsing and command line interface use github.com/spf13/cobra and github.com/spf13/viper.
+_______
+Configuration is in TOML format.
 
-Desktops can be defined in a configuration file or command line flags.
-    
-    # connect to the myDesktop configuration entry
-    runrdp myDesktop
-    
-    # connect to an IP address or hostname with the given credentials
-    runrdp 123.654.321.456 -u Administrator -p 'pa$$w0rd'
+This is a host configuration entry of type AWS EC2 named 'myhost'.
 
-The following providers/features are supported:
+    [host.awsec2.myhost]
+        private = false                                     # Connect to the public IP of the EC2 instance
+        profile = "dev"                                     # The AWS credentials profile name
+        includetags = ["Name;my-instance-name", "keyonly"]  # The default key/value separator is ';'
+        
+The instance IP and credentials are obtained at runtime using the AWS profile 'dev'.
+Call it with `runrdp myhost` or `runrdp find <pattern>` for a fuzzy search of hosts.
+All host configurations below start authenticated sessions.
 
-* SSH Tunnel support
-       
-        [host.basic.mytunnelhost]
-            address = "123.456.789.123"
-            tunnel = "mytunnel" # reference to tunnel config 
-            
-        [tunnel.mytunnel]
-            host = "bastion" # reference to bastion host config 
-            localport = "3390"
-            key = "C:/Users/myuser/.ssh/id_rsa"
-            user = "ubuntu"
+A host configuration of type basic (which is )just an IP address) named 'bastion'.
 
-        [host.awsec2.bastion]
-            id = "i-0f4bd11234be468f6"
-            private = false
-            profile = "default"
+    [host.basic.bastion]
+        address = "1.2.3.4"
+        proxy = "myiphost"
+        cred = "mycred"
+        
+The 'cred' field above refers to a credential entry of type AWS Secrets Manager.
+        
+    [cred.awssm.mycred]
+        usernameid = "TestInstanceUsername" # The username to authenticate with
+        passwordid = "TestInstancePassword" # The password to authenticate with
+        region = "eu-west-2"                # If omitted the profile default region will be used
+        profile = "dev"                     # The AWS credentials profile name
+        
+This is an SSH tunnel (SSH Port Forwarding) configuration entry.
 
+`ssh -i <key> -N -L <localport>:<address>:<port> <username>@<host address>`
+(address and port come from the host declaring the tunnel)
 
-#### AWS
-* Define RDP Desktops by AWS tag filters
+    [tunnel.mytunnel]
+        host = "bastion"                # The intermediate host forwarding the connection.
+        localport = "3390"              # The port to connect to locally.
+        key = "C:/Users/me/.ssh/id_rsa" # SSH key for the intermediate host.
+        user = "ubuntu"                 # SSH user for the intermediate host.
 
-        [host.awsec2.myhost]
-            private = false # Use public IP
-            getcred = true # Get instance password from AWS
-            profile = "default"
-            region = "eu-west-2"
-            includetags = ["Name;MyInstanceName", "env;production"] # Filter for instance using tags
+Tunneling to myhost via bastion. Tunnel (above) is declared in myhost and refers to bastion as the intermediate host.
 
-* Supports EC2 feature to get initial administrator password using SSH Key.
-
-        # connect to the AWS instance with the given ID, getting the password from AWS
-        runrdp aws -i i-02d88385685f8a739 --awspass
-    
-* Secrets Manager support.
-
-        # define RDP credentials by Secrets Manager secret key.
-        [cred.awssm.mycred]
-            usernameid = "MyUsernameSecret"
-            passwordid = "MyPasswordSecret"
-            region = "eu-west-2"
-            profile = "default"
-       
+    [host.awsec2.myhost]
+        tunnel = "mytunnel"                                 # Open an SSH tunnel before connecting 
+        private = true                                      # Use the private IP address to connect
+        profile = "dev"
+        includetags = ["Name;my-instance-name", "keyonly"]
+        
+Using bastion as a proxy to connect to myhost.
+        
+    [host.awsec2.myhost]
+        proxy = "bastion"                                   # Connect to the IP of bastion
+        profile = "dev"
+        includetags = ["Name;my-instance-name", "keyonly"]
