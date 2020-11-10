@@ -36,7 +36,8 @@ var rootCmd = &cobra.Command{
 // Run attempts to locate the given argument in the hosts config. If it is not a config entry the argument is validated
 // as a socket and a connection is attempted if validation passes.
 func Run(_ *cobra.Command, args []string) {
-	arg := args[0]
+	// Config keys are always parsed to lower case.
+	arg := strings.ToLower(args[0])
 
 	if configuration.HostExists(arg) {
 		connectToHost(arg)
