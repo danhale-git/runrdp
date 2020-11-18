@@ -94,38 +94,64 @@ func connectToHost(host string) {
 		log.Fatal(err)
 	}
 
+	var sshCommand *exec.Cmd
+
 	// Open an ssh tunnel and replace socket with the localhost:localport tunnel socket.
 	if t != nil {
-		socket, err = sshTunnel(t, address, port)
+		sshCommand, err = sshTunnel(t, address, port)
 		if err != nil {
 			log.Fatalf("opening ssh tunnel: %s", err)
 		}
+
+		socket = fmt.Sprintf("localhost:%s", t.LocalPort)
 	}
 
+	// Connect to the remote desktop.
 	rdp.Connect(socket, username, password)
+
+	// Close SSH connection when program exits. Wait for user to confirm before exiting.
+	if sshCommand != nil {
+		defer func() {
+			err = sshCommand.Process.Kill()
+			if err != nil {
+				log.Fatalf("ERROR: attempt to kill ssh command process returned error: %s", err)
+			}
+		}()
+
+		fmt.Println("Press Enter to close SSH tunnel")
+		fmt.Scanln()
+	}
 }
 
 // sshTunnel runs the following ssh command using exec:
 //
 // ssh -i <key file> -N -L <local port>:<host address>:<remote port> <username>@<forwarding server>
-func sshTunnel(tunnel *config.SSHTunnel, address, port string) (string, error) {
+func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error) {
+	// Get the address of the intermediate host
 	server, _, err := configuration.HostSocket(tunnel.Host, true)
 	if err != nil {
-		return "", fmt.Errorf("getting ssh tunnel server address: %s", err)
+		return nil, fmt.Errorf("getting ssh tunnel server address: %s", err)
 	}
 
+	// Prepare the SSH command
 	t := fmt.Sprintf("%s:%s:%s", tunnel.LocalPort, address, port)
 	u := fmt.Sprintf("%s@%s", tunnel.User, server)
 
 	command := exec.Command("ssh", "-i", tunnel.Key, "-N", "-L", t, u)
+	// Enable the user to enter yes/no for the host authenticity check
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+
+	// Run the command
+	err = command.Start()
+	if err != nil {
+		return nil, fmt.Errorf("starting command '%s': %s", command.String(), err)
+	}
 
 	fmt.Printf("ssh tunnel open %s %s\n", t, u)
 
-	err = command.Start()
-	if err != nil {
-		return "", fmt.Errorf("starting command '%s': %s", command.String(), err)
-	}
-
+	// If the command exits or errors report it.
 	go func() {
 		cmdErr := command.Wait()
 		if cmdErr != nil {
@@ -135,7 +161,7 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (string, error) {
 		fmt.Println("ssh tunnel closed")
 	}()
 
-	return fmt.Sprintf("localhost:%s", tunnel.LocalPort), nil
+	return command, nil
 }
 
 // SocketArgument checks if arg is 'host' or 'host:port' and attempts to connect if it is. It returns a bool indicating
