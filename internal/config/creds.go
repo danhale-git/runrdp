@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/danhale-git/runrdp/internal/thycotic"
+
 	"github.com/danhale-git/runrdp/internal/aws/ec2instances"
 	"github.com/danhale-git/runrdp/internal/aws/secrets"
 
@@ -15,6 +17,9 @@ func GetCredential(key string) (Cred, reflect.Value, error) {
 	switch key {
 	case "awssm":
 		cred := SecretsManagerCred{}
+		return &cred, reflect.ValueOf(&cred).Elem(), nil
+	case "thycotic":
+		cred := ThycoticCred{}
 		return &cred, reflect.ValueOf(&cred).Elem(), nil
 	default:
 		return nil, reflect.Value{},
@@ -80,4 +85,19 @@ func (s *SecretsManagerCred) Retrieve() (string, string, error) {
 	}
 
 	return username, password, nil
+}
+
+// ThycoticCred implements cred and retrieves a username and password from Thycotic Secret Server.
+type ThycoticCred struct {
+	SecretID int
+}
+
+// Retrieve returns the username and password fields from the secret with the given ID. If either the 'Username' or
+// 'Password' field not in the secret template an error is returned.
+func (t *ThycoticCred) Retrieve() (string, string, error) {
+	return thycotic.GetCredentials(
+		t.SecretID,
+		viper.GetString("thycotic-url"),
+		viper.GetString("thycotic-domain"),
+	)
 }

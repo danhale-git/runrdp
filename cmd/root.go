@@ -241,6 +241,18 @@ func init() {
 		"Directory containing SSH keys.",
 	)
 
+	rootCmd.PersistentFlags().String(
+		"thycotic-url",
+		path.Join(home, ""),
+		"URL for Thycotic Secret Server.",
+	)
+
+	rootCmd.PersistentFlags().String(
+		"thycotic-domain",
+		path.Join(home, ""),
+		"Active Directory domain for Thycotic Secret Server.",
+	)
+
 	err = viper.BindPFlags(rootCmd.PersistentFlags())
 	if err != nil {
 		panic(err)
