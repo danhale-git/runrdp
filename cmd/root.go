@@ -137,9 +137,7 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error
 	t := fmt.Sprintf("%s:%s:%s", tunnel.LocalPort, address, port)
 	u := fmt.Sprintf("%s@%s", tunnel.User, server)
 
-	command := exec.Command("ssh", "-i", tunnel.Key, "-N", "-L", t, u)
-	// Enable the user to enter yes/no for the host authenticity check
-	command.Stdin = os.Stdin
+	command := exec.Command("ssh", "-i", tunnel.Key, "-o", "StrictHostKeyChecking=no", "-N", "-L", t, u)
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 
