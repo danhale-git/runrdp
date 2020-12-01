@@ -341,27 +341,32 @@ func (c *Configuration) BuildData() {
 	c.loadTunnels(c.get("tunnel"))
 }
 
-// getNested returns the all configured items under the given key, from all config files.
+// getNested returns the all configured items under the given key, where the item key has 3 labels.
 func (c *Configuration) getNested(key string) map[string]map[string]interface{} {
 	var allConfigs = make(map[string]map[string]interface{})
 
-	for kind, items := range c.get(key) {
-		if _, ok := allConfigs[kind]; !ok {
-			allConfigs[kind] = make(map[string]interface{})
-		}
+	// Iterate config files
+	for _, cfg := range c.Data {
+		// Iterate items with key in config file
+		for kind, items := range cfg.GetStringMap(key) {
+			if _, ok := allConfigs[kind]; !ok {
+				allConfigs[kind] = make(map[string]interface{})
+			}
 
-		for k, v := range items.(map[string]interface{}) {
-			allConfigs[kind][k] = v
+			for k, v := range items.(map[string]interface{}) {
+				allConfigs[kind][k] = v
+			}
 		}
 	}
 
 	return allConfigs
 }
 
-// getNested returns the all configured items under the given key, from all config files.
+// get returns the all configured items under the given key, where the item key has 2 labels.
 func (c *Configuration) get(key string) map[string]interface{} {
 	var allConfigs = make(map[string]interface{})
 
+	// Iterate config files
 	for _, cfg := range c.Data {
 		for k, v := range cfg.GetStringMap(key) {
 			allConfigs[k] = v
