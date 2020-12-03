@@ -71,10 +71,10 @@ func getField(secret *server.Secret, fieldName string) (string, error) {
 func credentials() (string, string, error) {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Enter Username: ")
+	fmt.Print("Enter Thycotic Username: ")
 	username, _ := reader.ReadString('\n')
 
-	fmt.Print("Enter Password: ")
+	fmt.Print("Enter Thycotic Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		return "", "", fmt.Errorf("reading password input: %s", err)
