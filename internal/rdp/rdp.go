@@ -14,10 +14,8 @@ import (
 // DefaultPort is the standard port for RDP connections.
 const DefaultPort = "3389"
 
-var path = "connection.rdp"
-
 // Connect writes an RDP file, runs it then deletes it 1 second later.
-func Connect(host, user, pass string) {
+func Connect(host, user, pass, path string) {
 	cmdlineUser := viper.GetString("username")
 	cmdlinePass := viper.GetString("password")
 
@@ -29,7 +27,7 @@ func Connect(host, user, pass string) {
 		pass = cmdlinePass
 	}
 
-	fb := fileBody(host, user, pass)
+	fb := fileBody(host, user)
 
 	if pass != "" {
 		fb = CrossPlatformAuthHandler(fb, pass)
@@ -39,15 +37,15 @@ func Connect(host, user, pass string) {
 
 	runRDPFile(path)
 	// Ensure the file is deleted. Wait for 1 second before deleting it to allow the RDP application to read it.
-	defer deleteFile()
+	//defer deleteFile(path)
 	time.Sleep(1 * time.Second)
 }
 
-func fileBody(host, user, pass string) string {
+func fileBody(host, user string) string {
 	body := fmt.Sprintf(
 		`auto connect:i:1
-		prompt for credentials:i:0
-		full address:s:%s`,
+prompt for credentials:i:0
+full address:s:%s`,
 		host,
 	)
 
@@ -58,7 +56,7 @@ func fileBody(host, user, pass string) string {
 	return body
 }
 
-func deleteFile() {
+func deleteFile(path string) {
 	os.Remove(path)
 }
 

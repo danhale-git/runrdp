@@ -107,7 +107,7 @@ func connectToHost(host string) {
 	}
 
 	// Connect to the remote desktop.
-	rdp.Connect(socket, username, password)
+	rdp.Connect(socket, username, password, viper.GetString("tempfile-path"))
 
 	// Close SSH connection when program exits. Wait for user to confirm before exiting.
 	if sshCommand != nil {
@@ -190,6 +190,7 @@ func SocketArgument(arg string) bool {
 			socket,
 			viper.GetString("username"),
 			viper.GetString("password"),
+			viper.GetString("tempfile-path"),
 		)
 
 		return true
@@ -247,6 +248,10 @@ func init() {
 	rootCmd.PersistentFlags().StringP(
 		"password", "p", "",
 		"Password to authenticate with",
+	)
+	rootCmd.PersistentFlags().String(
+		"tempfile-path", configRoot+"connection.rdp",
+		"The directory in which a temporary .rdp file will be saved and run. Default is ~/.runrdp/",
 	)
 
 	rootCmd.PersistentFlags().String(
