@@ -13,7 +13,7 @@ import (
 func CrossPlatformAuthHandler(fileBody, password string) string {
 	fmt.Println("WARNING: Writing secret to clipboard - be careful where you paste!")
 
-	err = clipboard.WriteAll(password)
+	err := clipboard.WriteAll(password)
 
 	if err != nil {
 		log.Fatalf("writing password to clipboard: %s", err)
