@@ -37,7 +37,7 @@ func Connect(host, user, pass, path string) {
 
 	runRDPFile(path)
 	// Ensure the file is deleted. Wait for 1 second before deleting it to allow the RDP application to read it.
-	//defer deleteFile(path)
+	defer deleteFile(path)
 	time.Sleep(1 * time.Second)
 }
 

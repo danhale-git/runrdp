@@ -19,5 +19,5 @@ func CrossPlatformAuthHandler(fileBody, password string) string {
 		log.Fatalf("writing password to clipboard: %s", err)
 	}
 
-	return ""
+	return fileBody
 }

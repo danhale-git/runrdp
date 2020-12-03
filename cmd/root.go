@@ -250,7 +250,7 @@ func init() {
 		"Password to authenticate with",
 	)
 	rootCmd.PersistentFlags().String(
-		"tempfile-path", configRoot+"connection.rdp",
+		"tempfile-path", filepath.Join(configRoot, "connection.rdp"),
 		"The directory in which a temporary .rdp file will be saved and run. Default is ~/.runrdp/",
 	)
 
