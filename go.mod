@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0
+	github.com/atotto/clipboard v0.1.2
 	github.com/aws/aws-sdk-go v1.34.14
 	github.com/danhale-git/tss-sdk-go v1.0.3
 	github.com/kylelemons/godebug v1.1.0 // indirect

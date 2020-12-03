@@ -2,6 +2,8 @@ package rdp
 
 import (
 	"encoding/binary"
+	"fmt"
+	"log"
 	"syscall"
 	"unicode/utf16"
 	"unsafe"
@@ -19,6 +21,18 @@ var (
 	procDecryptData = dLLCrypt32.NewProc("CryptUnprotectData")
 	procLocalFree   = dLLKernel32.NewProc("LocalFree")
 )
+
+// CrossPlatformAuthHandler handles the usage of the password. On Windows this is encrypted and included in the .rdp
+// file. On Mac OS this is not possible. Currently Mac users will just have the password copied to their clipboard.
+// The correct way to do this on mac is probably using the KeyRing. See https://github.com/danhale-git/runrdp/issues/38.
+func CrossPlatformAuthHandler(fileBody, password string) string {
+	enc, err := encrypt(password)
+	if err != nil {
+		log.Fatalf("encrypt failed: %v", err)
+	}
+
+	return fileBody + fmt.Sprintf("\npassword 51:b:%s", fmt.Sprintf("%x", enc))
+}
 
 type DataBlob struct {
 	cbData uint32

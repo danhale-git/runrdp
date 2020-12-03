@@ -3,7 +3,6 @@ package rdp
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 
@@ -30,14 +29,21 @@ func Connect(host, user, pass string) {
 		pass = cmdlinePass
 	}
 
-	createFile(host, user, pass)
+	fb := fileBody(host, user, pass)
+
+	if pass != "" {
+		fb = CrossPlatformAuthHandler(fb, pass)
+	}
+
+	writeFile(fb, path)
+
 	runRDPFile(path)
 	// Ensure the file is deleted. Wait for 1 second before deleting it to allow the RDP application to read it.
 	defer deleteFile()
 	time.Sleep(1 * time.Second)
 }
 
-func createFile(host, user, pass string) {
+func fileBody(host, user, pass string) string {
 	body := fmt.Sprintf(
 		`auto connect:i:1
 		prompt for credentials:i:0
@@ -49,16 +55,7 @@ func createFile(host, user, pass string) {
 		body += fmt.Sprintf("\nusername:s:%s", user)
 	}
 
-	if pass != "" {
-		enc, err := encrypt(pass)
-		if err != nil {
-			log.Fatalf("encrypt failed: %v", err)
-		}
-
-		body += fmt.Sprintf("\npassword 51:b:%s", fmt.Sprintf("%x", enc))
-	}
-
-	writeFile(body, path)
+	return body
 }
 
 func deleteFile() {
