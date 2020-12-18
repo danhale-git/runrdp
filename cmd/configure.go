@@ -138,7 +138,7 @@ func CheckExistence(path, description string, dir bool) bool {
 			if dir {
 				fmt.Println("created directory ", path)
 
-				err = os.MkdirAll(path, 0600)
+				err = os.MkdirAll(path, 0700)
 				if err != nil {
 					fmt.Printf("failed to create directory %s: %s\n", path, err)
 				}
