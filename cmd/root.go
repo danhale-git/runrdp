@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/danhale-git/runrdp/internal/config"
 
@@ -105,6 +106,9 @@ func connectToHost(host string) {
 
 		socket = fmt.Sprintf("localhost:%s", t.LocalPort)
 	}
+
+	// Give the SSH tunnel time to open
+	time.Sleep(500 * time.Millisecond)
 
 	// Connect to the remote desktop.
 	rdp.Connect(socket, username, password, viper.GetString("tempfile-path"))
