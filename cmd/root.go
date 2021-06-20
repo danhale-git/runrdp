@@ -145,7 +145,7 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error
 
 	sshOut := bytes.NewBuffer(make([]byte, 0))
 	command.Stdout = sshOut
-	command.Stderr = os.Stderr
+	command.Stderr = sshOut
 
 	// Run the command
 	err = command.Start()
