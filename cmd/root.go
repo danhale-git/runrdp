@@ -120,7 +120,9 @@ func connectToHost(host string) {
 		}()
 
 		fmt.Println("Press Enter to close SSH tunnel")
-		fmt.Scanln()
+		if _, err := fmt.Scanln(); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
@@ -143,7 +145,7 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error
 
 	sshOut := bytes.NewBuffer(make([]byte, 0))
 	command.Stdout = sshOut
-	command.Stderr = os.Stderr
+	//command.Stderr = os.Stderr //DEBUG
 
 	// Run the command
 	err = command.Start()
@@ -159,6 +161,7 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error
 		}
 
 		if strings.Contains(string(b), "pledge: network") {
+			fmt.Println("FOUND") //DEBUG
 			break
 		}
 	}
