@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -9,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/danhale-git/runrdp/internal/config"
 
@@ -107,9 +107,6 @@ func connectToHost(host string) {
 		socket = fmt.Sprintf("localhost:%s", t.LocalPort)
 	}
 
-	// Give the SSH tunnel time to open
-	time.Sleep(500 * time.Millisecond)
-
 	// Connect to the remote desktop.
 	rdp.Connect(socket, username, password, viper.GetString("tempfile-path"))
 
@@ -141,14 +138,28 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error
 	t := fmt.Sprintf("%s:%s:%s", tunnel.LocalPort, address, port)
 	u := fmt.Sprintf("%s@%s", tunnel.User, server)
 
-	command := exec.Command("ssh", "-i", tunnel.Key, "-o", "StrictHostKeyChecking=no", "-N", "-L", t, u)
-	command.Stdout = os.Stdout
+	command := exec.Command("ssh", "-v", "-i", tunnel.Key, "-o", "StrictHostKeyChecking=no", "-N", "-L", t, u)
+
+	sshOut := bytes.NewBuffer(make([]byte, 0))
+	command.Stdout = sshOut
 	command.Stderr = os.Stderr
 
 	// Run the command
 	err = command.Start()
 	if err != nil {
 		return nil, fmt.Errorf("starting command '%s': %s", command.String(), err)
+	}
+
+	// Read lines from the ssh verbose output to determine when the tunnel is up
+	for {
+		b, err := sshOut.ReadBytes('\n')
+		if err != nil {
+			log.Fatalf("error reading ssh command output: %s", err)
+		}
+
+		if strings.Contains(string(b), "pledge: network") {
+			break
+		}
 	}
 
 	fmt.Printf("ssh tunnel open %s %s\n", t, u)
