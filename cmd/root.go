@@ -139,6 +139,7 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error
 	u := fmt.Sprintf("%s@%s", tunnel.User, server)
 
 	command := exec.Command("ssh", "-v", "-i", tunnel.Key, "-o", "StrictHostKeyChecking=no", "-N", "-L", t, u)
+	fmt.Println(command.String())
 
 	sshOut := bytes.NewBuffer(make([]byte, 0))
 	command.Stdout = sshOut
