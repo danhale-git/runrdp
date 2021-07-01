@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/rgzr/sshtun"
 
@@ -120,10 +119,12 @@ func connectToHost(host string) {
 	}
 }
 
-// sshTunnel runs the following ssh command using exec:
+// sshTunnel open an SSH tunnel (port forwarding) equivalent to the command below:
 //
 // ssh -i <key file> -N -L <local port>:<host address>:<remote port> <username>@<forwarding server>
 func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, error) {
+	debug := viper.GetBool("debug")
+
 	lp, err := strconv.Atoi(tunnel.LocalPort)
 	if err != nil {
 		return nil, fmt.Errorf("invalid local port '%s': %w", tunnel.LocalPort, err)
@@ -140,33 +141,39 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, 
 		return nil, fmt.Errorf("getting ssh tunnel server address: %s", err)
 	}
 
-	fmt.Println("tunnel", tunnel)
-	fmt.Println("address", address)
-	fmt.Println("port", port)
-	fmt.Println("server", server)
-
 	sshTun := sshtun.New(lp, server, rp)
 	sshTun.SetKeyFile(tunnel.Key)
 	sshTun.SetUser(tunnel.User)
 	sshTun.SetRemoteHost(address)
-	sshTun.SetTimeout(time.Second * 60)
 
 	// We enable debug messages to see what happens
-	sshTun.SetDebug(true) //DEBUG
+	sshTun.SetDebug(debug) //DEBUG
 
-	// We set a callback to know when the tunnel is ready
-	sshTun.SetConnState(func(tun *sshtun.SSHTun, state sshtun.ConnState) {
-		switch state {
-		case sshtun.StateStarting:
-			log.Printf("SSH tunnel starting")
-		case sshtun.StateStarted:
-			log.Printf("SSH tunnel open")
-		case sshtun.StateStopped:
-			log.Printf("SSH tunnel Stopped")
-		}
-	})
+	if debug {
+		// Print the equivalent SSH command
+		fmt.Printf("ssh -i %s -N -L %d:%s:%d %s@%s\n",
+			tunnel.Key,
+			lp,
+			address,
+			rp,
+			tunnel.User,
+			server,
+		)
 
-	// We start the tunnel (and restart it every time it is stopped)
+		// Print tunnel status changes
+		sshTun.SetConnState(func(tun *sshtun.SSHTun, state sshtun.ConnState) {
+			switch state {
+			case sshtun.StateStarting:
+				log.Printf("SSH tunnel starting")
+			case sshtun.StateStarted:
+				log.Printf("SSH tunnel open")
+			case sshtun.StateStopped:
+				log.Printf("SSH tunnel Stopped")
+			}
+		})
+	}
+
+	// Start the tunnel
 	go func() {
 		if err := sshTun.Start(); err != nil {
 			log.Printf("SSH tunnel stopped: %s", err.Error())
@@ -245,6 +252,11 @@ func init() {
 	}
 
 	configRoot := filepath.Join(home, "/.runrdp/")
+
+	rootCmd.PersistentFlags().Bool(
+		"debug", false,
+		"Print debug information",
+	)
 
 	rootCmd.PersistentFlags().String(
 		"address", "",
