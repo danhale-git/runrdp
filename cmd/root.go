@@ -123,6 +123,10 @@ func connectToHost(host string) {
 //
 // ssh -i <key file> -N -L <local port>:<host address>:<remote port> <username>@<forwarding server>
 func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, error) {
+	fmt.Println("tunnel", tunnel)
+	fmt.Println("address", address)
+	fmt.Println("port", port)
+
 	lp, err := strconv.Atoi(tunnel.LocalPort)
 	if err != nil {
 		return nil, fmt.Errorf("invalid local port '%s': %w", tunnel.LocalPort, err)
