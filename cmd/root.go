@@ -148,6 +148,7 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, 
 	sshTun.SetKeyFile(tunnel.Key)
 	sshTun.SetUser(tunnel.User)
 	sshTun.SetRemoteHost(server)
+	sshTun.SetTimeout(20)
 
 	// We enable debug messages to see what happens
 	sshTun.SetDebug(true) //DEBUG
