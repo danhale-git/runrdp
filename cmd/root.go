@@ -145,10 +145,10 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, 
 	fmt.Println("port", port)
 	fmt.Println("server", server)
 
-	sshTun := sshtun.New(lp, address, rp)
+	sshTun := sshtun.New(lp, server, rp)
 	sshTun.SetKeyFile(tunnel.Key)
 	sshTun.SetUser(tunnel.User)
-	sshTun.SetRemoteHost(server)
+	sshTun.SetRemoteHost(address)
 	sshTun.SetTimeout(time.Second * 60)
 
 	// We enable debug messages to see what happens
