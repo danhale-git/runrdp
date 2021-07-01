@@ -137,7 +137,16 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, 
 		return nil, fmt.Errorf("invalid remote port '%s': %w", port, err)
 	}
 
+	// Get the address of the intermediate host
+	server, _, err := configuration.HostSocket(tunnel.Host, true)
+	if err != nil {
+		return nil, fmt.Errorf("getting ssh tunnel server address: %s", err)
+	}
+
 	sshTun := sshtun.New(lp, address, rp)
+	sshTun.SetKeyFile(tunnel.Key)
+	sshTun.SetUser(tunnel.User)
+	sshTun.SetRemoteHost(server)
 
 	// We enable debug messages to see what happens
 	sshTun.SetDebug(true) //DEBUG
