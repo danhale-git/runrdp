@@ -1,6 +1,6 @@
 module github.com/danhale-git/runrdp
 
-go 1.14
+go 1.16
 
 require (
 	github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0
@@ -9,6 +9,7 @@ require (
 	github.com/danhale-git/tss-sdk-go v1.1.0
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/rgzr/sshtun v0.0.2 // indirect
 	github.com/sahilm/fuzzy v0.1.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.0.0

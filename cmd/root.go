@@ -5,11 +5,12 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
-	"time"
+
+	"github.com/rgzr/sshtun"
 
 	"github.com/danhale-git/runrdp/internal/config"
 
@@ -69,22 +70,19 @@ func connectToHost(host string) {
 		fmt.Printf("error getting host credentials: %s\n", err)
 	}
 
+	// Check if command line flags were passed and override configuration
 	clAddress := viper.GetString("address")
-
 	if clAddress != "" {
-		// Address command line flag was passed, override configuration.
 		address = clAddress
 	}
 
 	clPort := viper.GetString("port")
-
 	if clPort != "" {
-		// Port command line flag was passed, override configuration.
 		port = clPort
 	}
 
+	// If no port was given, use the standard RDP port.
 	if port == "" {
-		// No port was given, use the standard RDP port.
 		port = rdp.DefaultPort
 	}
 
@@ -95,75 +93,94 @@ func connectToHost(host string) {
 		log.Fatal(err)
 	}
 
-	var sshCommand *exec.Cmd
+	var tunnel *sshtun.SSHTun
 
 	// Open an ssh tunnel and replace socket with the localhost:localport tunnel socket.
 	if t != nil {
-		sshCommand, err = sshTunnel(t, address, port)
+		tunnel, err = sshTunnel(t, address, port)
 		if err != nil {
 			log.Fatalf("opening ssh tunnel: %s", err)
 		}
 
 		socket = fmt.Sprintf("localhost:%s", t.LocalPort)
-	}
 
-	// Give the SSH tunnel time to open
-	time.Sleep(500 * time.Millisecond)
+		defer tunnel.Stop()
+	}
 
 	// Connect to the remote desktop.
 	rdp.Connect(socket, username, password, viper.GetString("tempfile-path"))
 
 	// Close SSH connection when program exits. Wait for user to confirm before exiting.
-	if sshCommand != nil {
-		defer func() {
-			err = sshCommand.Process.Kill()
-			if err != nil {
-				log.Fatalf("ERROR: attempt to kill ssh command process returned error: %s", err)
-			}
-		}()
-
+	if tunnel != nil {
 		fmt.Println("Press Enter to close SSH tunnel")
-		fmt.Scanln()
+		if _, err := fmt.Scanln(); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
-// sshTunnel runs the following ssh command using exec:
+// sshTunnel open an SSH tunnel (port forwarding) equivalent to the command below:
 //
 // ssh -i <key file> -N -L <local port>:<host address>:<remote port> <username>@<forwarding server>
-func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*exec.Cmd, error) {
+func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, error) {
+	debug := viper.GetBool("debug")
+
+	lp, err := strconv.Atoi(tunnel.LocalPort)
+	if err != nil {
+		return nil, fmt.Errorf("invalid local port '%s': %w", tunnel.LocalPort, err)
+	}
+
+	rp, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, fmt.Errorf("invalid remote port '%s': %w", port, err)
+	}
+
 	// Get the address of the intermediate host
 	server, _, err := configuration.HostSocket(tunnel.Host, true)
 	if err != nil {
 		return nil, fmt.Errorf("getting ssh tunnel server address: %s", err)
 	}
 
-	// Prepare the SSH command
-	t := fmt.Sprintf("%s:%s:%s", tunnel.LocalPort, address, port)
-	u := fmt.Sprintf("%s@%s", tunnel.User, server)
+	sshTun := sshtun.New(lp, server, rp)
+	sshTun.SetKeyFile(tunnel.Key)
+	sshTun.SetUser(tunnel.User)
+	sshTun.SetRemoteHost(address)
 
-	command := exec.Command("ssh", "-i", tunnel.Key, "-o", "StrictHostKeyChecking=no", "-N", "-L", t, u)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
+	// We enable debug messages to see what happens
+	sshTun.SetDebug(debug) //DEBUG
 
-	// Run the command
-	err = command.Start()
-	if err != nil {
-		return nil, fmt.Errorf("starting command '%s': %s", command.String(), err)
+	if debug {
+		// Print the equivalent SSH command
+		fmt.Printf("ssh -i %s -N -L %d:%s:%d %s@%s\n",
+			tunnel.Key,
+			lp,
+			address,
+			rp,
+			tunnel.User,
+			server,
+		)
+
+		// Print tunnel status changes
+		sshTun.SetConnState(func(tun *sshtun.SSHTun, state sshtun.ConnState) {
+			switch state {
+			case sshtun.StateStarting:
+				log.Printf("SSH tunnel starting")
+			case sshtun.StateStarted:
+				log.Printf("SSH tunnel open")
+			case sshtun.StateStopped:
+				log.Printf("SSH tunnel Stopped")
+			}
+		})
 	}
 
-	fmt.Printf("ssh tunnel open %s %s\n", t, u)
-
-	// If the command exits or errors report it.
+	// Start the tunnel
 	go func() {
-		cmdErr := command.Wait()
-		if cmdErr != nil {
-			fmt.Printf("ssh tunnel command exited with error: %s\n", cmdErr)
+		if err := sshTun.Start(); err != nil {
+			log.Printf("SSH tunnel stopped: %s", err.Error())
 		}
-
-		fmt.Println("ssh tunnel closed")
 	}()
 
-	return command, nil
+	return sshTun, nil
 }
 
 // SocketArgument checks if arg is 'host' or 'host:port' and attempts to connect if it is. It returns a bool indicating
@@ -235,6 +252,11 @@ func init() {
 	}
 
 	configRoot := filepath.Join(home, "/.runrdp/")
+
+	rootCmd.PersistentFlags().Bool(
+		"debug", false,
+		"Print debug information",
+	)
 
 	rootCmd.PersistentFlags().String(
 		"address", "",
