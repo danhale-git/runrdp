@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -14,7 +15,7 @@ func newConfiguration(configurations ...*viper.Viper) Configuration {
 	c.creds = make(map[string]Cred)
 
 	for i, config := range configurations {
-		c.Data["config_"+string(i)] = config
+		c.Data["config_"+fmt.Sprint(i)] = config
 	}
 
 	return c
