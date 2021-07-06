@@ -107,8 +107,25 @@ func connectToHost(host string) {
 		defer tunnel.Stop()
 	}
 
+	settings, err := configuration.HostSettings(host)
+	if err != nil {
+		log.Fatalf("retrieving settings: %s", err)
+	}
+
+	if settings == nil {
+		settings = &config.Settings{}
+	}
+
 	// Connect to the remote desktop.
-	rdp.Connect(socket, username, password, viper.GetString("tempfile-path"))
+	rdp.Connect(
+		socket,
+		username,
+		password,
+		viper.GetString("tempfile-path"),
+		settings.Width,
+		settings.Height,
+		settings.Scale,
+	)
 
 	// Close SSH connection when program exits. Wait for user to confirm before exiting.
 	if tunnel != nil {
@@ -212,6 +229,7 @@ func SocketArgument(arg string) bool {
 			viper.GetString("username"),
 			viper.GetString("password"),
 			viper.GetString("tempfile-path"),
+			0, 0, 0,
 		)
 
 		return true
