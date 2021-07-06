@@ -26,7 +26,10 @@ const (
 	globalHostPort
 	globalHostUsername
 	globalHostTunnel
+	globalHostSettings
 )
+
+var validKeys = []string{"host", "cred", "tunnel", "settings"}
 
 // GlobalHostFields are the names of fields which may be configured in any host.
 type GlobalHostFields int
@@ -44,6 +47,7 @@ func GlobalHostFieldNames() []string {
 		"port",
 		"username",
 		"tunnel",
+		"settings",
 	}
 }
 
@@ -76,6 +80,14 @@ type SSHTunnel struct {
 	User      string // The SSH user to connect as
 }
 
+// Settings is the configuration of .RDP file settings.
+// https://docs.microsoft.com/en-us/windows-server/remote/remote-desktop-services/clients/rdp-files
+type Settings struct {
+	Height int // Height of the session in pixels
+	Width  int // Width of the session in pixels
+	Scale  int // Scale the session view (100, 125, 150, 175, 200, 250, 300, 400, 500)
+}
+
 // Configuration loads multiple configuration files into individual viper instances and creates structs representing
 // the configured hosts and credential sources.
 //
@@ -86,8 +98,9 @@ type Configuration struct {
 	Hosts       map[string]Host              // Host configs
 	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]
 
-	creds   map[string]Cred      // All unique Cred configs, by cred key name
-	tunnels map[string]SSHTunnel // SSHTunnel configs
+	creds    map[string]Cred      // All unique Cred configs, by cred key name
+	tunnels  map[string]SSHTunnel // SSHTunnel configs
+	settings map[string]Settings  // Settings configs
 }
 
 // HostsSortedByPattern returns a slice of host config key strings matching the given pattern.
@@ -242,6 +255,24 @@ func (c *Configuration) HostTunnel(key string) (*SSHTunnel, error) {
 	return &t, nil
 }
 
+// HostSettings returns a pointer to the Settings object associated with the given host. If no Settings exist for this
+// host, the return value will be nil.
+func (c *Configuration) HostSettings(key string) (*Settings, error) {
+	k, ok := c.HostGlobals[key][globalHostSettings.String()]
+
+	if !ok || k == "" {
+		return nil, nil
+	}
+
+	s, ok := c.settings[k]
+
+	if !ok {
+		return nil, fmt.Errorf("host '%s' references settings '%s' which does not appear in config", key, k)
+	}
+
+	return &s, nil
+}
+
 // Assign the results of newValues to a and b respectively, unless they are empty strings.
 func overwriteValues(a, b *string, newValues func() (string, string, error)) error {
 	aNew, bNew, err := newValues()
@@ -280,13 +311,23 @@ func (c *Configuration) ReadConfigFiles() {
 func validateConfig(v *viper.Viper) error {
 	for _, key := range v.AllKeys() {
 		topLevelKey := strings.Split(key, ".")[0]
-		if topLevelKey != "host" && topLevelKey != "cred" && topLevelKey != "tunnel" {
+		if !keyIsValid(topLevelKey) {
 			return fmt.Errorf("%s: user config file entry keys must start with 'host.' or 'cred.': use default"+
 				" config file '%s' for all other entries", key, DefaultConfigName)
 		}
 	}
 
 	return nil
+}
+
+func keyIsValid(key string) bool {
+	for _, v := range validKeys {
+		if key == v {
+			return true
+		}
+	}
+
+	return false
 }
 
 func configFileNames() []string {
@@ -335,10 +376,12 @@ func (c *Configuration) BuildData() {
 	c.HostGlobals = make(map[string]map[string]string)
 	c.creds = make(map[string]Cred)
 	c.tunnels = make(map[string]SSHTunnel)
+	c.settings = make(map[string]Settings)
 
 	c.loadCredentials(c.getNested("cred"))
 	c.loadHosts(c.getNested("host"))
 	c.loadTunnels(c.get("tunnel"))
+	c.loadSettings(c.get("settings"))
 }
 
 // getNested returns the all configured items under the given key, where the item key has 3 labels.
@@ -389,6 +432,45 @@ func (c *Configuration) loadTunnels(tunnelsConfig map[string]interface{}) {
 		}
 
 		c.tunnels[itemKey] = tunnel
+	}
+}
+
+func (c *Configuration) loadSettings(settingsConfig map[string]interface{}) {
+	for itemKey, data := range settingsConfig {
+		settings := Settings{}
+		val := reflect.ValueOf(&settings).Elem()
+
+		err := setFields(val, data.(map[string]interface{}))
+
+		if err != nil {
+			fmt.Printf("Failed to load settings '%s': %s\n", itemKey, err)
+			continue
+		}
+
+		if settings.Width != 0 && (settings.Width < 200 || settings.Width > 8192) {
+			fmt.Printf("Failed to load settings '%s = %d': width value is invalid, must be above 200 and below 8192\n", itemKey, settings.Width)
+			continue
+		}
+
+		if settings.Height != 0 && (settings.Height < 200 || settings.Height > 8192) {
+			fmt.Printf("Failed to load settings '%s = %d': height value is invalid, must be above 200 and below 8192\n", itemKey, settings.Height)
+			continue
+		}
+
+		if settings.Scale != 0 && func() bool {
+			// Scale is not in list of valid values
+			for _, v := range []int{100, 125, 150, 175, 200, 250, 300, 400, 500} {
+				if settings.Scale == v {
+					return false
+				}
+			}
+			return true
+		}() {
+			fmt.Printf("Failed to load settings '%s': scale value is invalid, must be one of 100, 125, 150, 175, 200, 250, 300, 400, 500\n", itemKey)
+			continue
+		}
+
+		c.settings[itemKey] = settings
 	}
 }
 
