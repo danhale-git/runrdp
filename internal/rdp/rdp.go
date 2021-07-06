@@ -44,7 +44,8 @@ func Connect(host, user, pass, path string, width, height, scale int) {
 
 func fileBody(host, user string) string {
 	body := fmt.Sprintf(
-		`auto connect:i:1
+		`screen mode id:i:1
+auto connect:i:1
 prompt for credentials:i:0
 full address:s:%s`,
 		host,
