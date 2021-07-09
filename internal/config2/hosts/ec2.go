@@ -9,22 +9,19 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ParseEC2(v *viper.Viper) (map[string]interface{}, []interface{}, error) {
-	key := "host.awsec2"
-	if !v.IsSet(key) {
-		return nil, nil, nil
-	}
-	raw := v.Get(key).(map[string]interface{})
-	structs := make([]interface{}, len(raw))
+// EC2Structs returns a slice containing structs of type hosts.EC2 with the given length.
+func EC2Structs(l int) []interface{} {
+	structs := make([]interface{}, l)
 	for i := range structs {
 		structs[i] = &EC2{}
 	}
 
-	/*for _, v := range raw {
-			// TODO: call validation function
-	}*/
+	return structs
+}
 
-	return raw, structs, nil
+// TODO: Implement this
+func ValidateEC2() {
+
 }
 
 // EC2 defines an AWS EC2 instance to connect to by getting it's address from the AWS API.

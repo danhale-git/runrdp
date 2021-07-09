@@ -4,50 +4,57 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
+
+	"github.com/danhale-git/runrdp/internal/config2/hosts"
 
 	"github.com/spf13/viper"
 
 	"github.com/danhale-git/runrdp/internal/mock"
 )
 
-func loadConfig(raw string) (*viper.Viper, error) {
-	v := viper.New()
-	v.SetConfigType("toml")
-	if err := v.ReadConfig(strings.NewReader(raw)); err != nil {
-		panic(fmt.Sprintf("TEST CONFIG LOAD FAILED: %s, %T", err, errors.Unwrap(err)))
-	}
-
-	return v, nil
+func vipersFromString(s string) (map[string]*viper.Viper, error) {
+	return vipersFromStrings([]string{s})
 }
 
-/*func TestRead(t *testing.T) {
-	v, err := Load(bytes.NewBuffer([]byte(mock.Config)))
+func vipersFromStrings(s []string) (map[string]*viper.Viper, error) {
+	readers := readersFromStrings(s)
+
+	return ReadConfigs(readers)
+}
+
+func readersFromStrings(s []string) map[string]io.Reader {
+	readers := make(map[string]io.Reader)
+	for i, v := range s {
+		readers[fmt.Sprintf("config%d", i+1)] = strings.NewReader(v)
+	}
+
+	return readers
+}
+
+func TestReadConfigs(t *testing.T) {
+	r := readersFromStrings([]string{
+		mock.Config,
+	})
+
+	v, err := ReadConfigs(r)
 	if err != nil {
 		t.Errorf("unexpected error returned: %s", err)
 	}
 
-	if v == nil {
-		t.Errorf("returned viper.Viper instance is nil but no error was returned")
+	testKey := "host.awsec2.awsec2test"
+
+	if !v["config1"].IsSet(testKey) {
+		t.Errorf("key '%s' should be set but is not", testKey)
 	}
+}
 
-	_, err = Load(bytes.NewBuffer([]byte(mock.ConfigWithDuplicate)))
-	if err == nil {
-		t.Errorf("no error returned when config has a duplicate key")
-	} else if !errors.Is(errors.Unwrap(err), viper.ConfigParseError{}) {
-		t.Errorf("unexpected error returned when config has a duplicate key: expected viper.ConfigParseError: got %T", errors.Unwrap(err))
-	}
+func TestNew(t *testing.T) {
+	v, err := vipersFromString(mock.Config)
 
-}*/
-
-func TestParse(t *testing.T) {
-	v, err := loadConfig(mock.Config)
-	if err != nil {
-		t.Errorf("error loading config: %s", err)
-	}
-
-	c, err := Parse(v)
+	c, err := New(v)
 	if err != nil {
 		t.Errorf("unexpected error returned: %s", err)
 	}
@@ -56,8 +63,15 @@ func TestParse(t *testing.T) {
 		t.Errorf("configuration object has no hosts after parsing")
 	}
 
-	v, err = loadConfig(mock.ConfigWithDuplicate)
-	_, err = Parse(v)
+	for k := range hosts.Map {
+		name := fmt.Sprintf("%stest", k)
+		if _, ok := c.Hosts[name]; !ok {
+			t.Errorf("host with key '%s' was not loaded into the configuration", name)
+		}
+	}
+
+	v, err = vipersFromString(mock.ConfigWithDuplicate)
+	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has a duplicate key")
 	} else if !errors.Is(err, &DuplicateConfigNameError{}) {
@@ -66,7 +80,7 @@ func TestParse(t *testing.T) {
 
 	// TODO: need to make sure config is validated
 	/*v, err = loadConfig(mock.ConfigWithUnknownField)
-	_, err = Parse(v)
+	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has an unknown field")
 	} else if !errors.Is(err, &DuplicateConfigNameError{}) {
