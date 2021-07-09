@@ -9,14 +9,14 @@ const Config = `[cred.awssm.awssmtest]
 [host.awsec2.awsec2test]
     tunnel = "mytunnel"
     private = true
-    getcred = true
-    profile = "default"
+    cred = "testcred"
+    profile = "TESTVALUE"
     region = "eu-west-2"
     includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
 
 [host.basic.basictest]
     address = "35.178.168.122"
-    cred = "mycred"
+    cred = "testcred"
 
 [tunnel.tunneltest]
     host = "myiphost"
@@ -39,9 +39,8 @@ const ConfigWithDuplicate = `[host.basic.test]
 `
 
 const ConfigWithUnknownField = `[host.awsec2.test]
-    unknownfield = "unknownfieldvalue"
 	tunnel = "mytunnel"
-    private = true
+    private = 1234
     getcred = true
     profile = "default"
     region = "eu-west-2"

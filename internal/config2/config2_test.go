@@ -56,7 +56,7 @@ func TestNew(t *testing.T) {
 
 	c, err := New(v)
 	if err != nil {
-		t.Errorf("unexpected error returned: %s", err)
+		t.Fatalf("unexpected error returned: %s", err)
 	}
 
 	if len(c.Hosts) == 0 {
@@ -70,6 +70,14 @@ func TestNew(t *testing.T) {
 		}
 	}
 
+	if ec2, ok := c.Hosts["awsec2test"].(*hosts.EC2); ok {
+		if ec2.Profile != "TESTVALUE" {
+			t.Errorf("unexpected value for ec2test.Profile: expected 'TESTVALUE': got '%s'", ec2.Profile)
+		}
+	} else {
+		t.Errorf("unable to convert hosts.awsec2.ec2test to type hosts.EC2")
+	}
+
 	v, err = vipersFromString(mock.ConfigWithDuplicate)
 	_, err = New(v)
 	if err == nil {
@@ -79,13 +87,13 @@ func TestNew(t *testing.T) {
 	}
 
 	// TODO: need to make sure config is validated
-	/*v, err = loadConfig(mock.ConfigWithUnknownField)
+	v, err = vipersFromString(mock.ConfigWithUnknownField)
 	_, err = New(v)
 	if err == nil {
-		t.Errorf("no error returned when config has an unknown field")
-	} else if !errors.Is(err, &DuplicateConfigNameError{}) {
-		t.Errorf("unexpecred error returned: expected DuplicateConfigNameError: got %T", errors.Unwrap(err))
-	}*/
+		t.Errorf("no error returned when config has an incorrect field value type")
+	} else if !errors.Is(err, &FieldLoadError{}) {
+		t.Errorf("unexpecred error returned: expected FieldLoadError: got %T: %s", errors.Unwrap(err), err)
+	}
 
 	/*if c == nil {
 		return

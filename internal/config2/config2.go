@@ -3,8 +3,8 @@ package config2
 import (
 	"fmt"
 	"io"
-
-	"github.com/mitchellh/mapstructure"
+	"reflect"
+	"strings"
 
 	"github.com/danhale-git/runrdp/internal/config2/hosts"
 
@@ -92,12 +92,11 @@ func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, f
 
 		index := 0
 		for name, raw := range all {
-			if err := mapstructure.Decode(raw, &structs[index]); err != nil {
-				return fmt.Errorf("decoding '%s' from config '%s': %w", key, cfgName, err)
+			h := structs[index].(Host)
+			value := reflect.ValueOf(h).Elem()
+			if err := setFields(value, raw.(map[string]interface{})); err != nil {
+				return fmt.Errorf("reading '%s' fields for %s in '%s': %w", key, name, cfgName, err)
 			}
-
-			var h Host
-			h = structs[index].(Host)
 
 			if _, ok := c.Hosts[name]; ok {
 				return &DuplicateConfigNameError{Name: name}
@@ -110,6 +109,130 @@ func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, f
 	}
 
 	return nil
+}
+
+// setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
+// will be left empty in the struct.
+func setFields(values reflect.Value, data map[string]interface{}) error {
+	structType := values.Type()
+
+	valueMap := make(map[string]reflect.Value)
+
+	for i := 0; i < structType.NumField(); i++ {
+		v := values.Field(i)
+		fieldName := strings.ToLower(structType.Field(i).Name)
+
+		valueMap[fieldName] = v
+
+		if hosts.FieldNameIsGlobal(fieldName) {
+			panic(fmt.Sprintf("config type '%s' contains field '%s' which is a global host field name",
+				structType.Name(), fieldName))
+		}
+	}
+
+	for k, v := range data {
+		if hosts.FieldNameIsGlobal(k) {
+			continue
+		}
+
+		_, exists := valueMap[k]
+		if !exists {
+			return fmt.Errorf("config key %s is invalid for type %s", k, structType.Name())
+		}
+
+		value := valueMap[k]
+		n := strings.ToLower(structType.Name())
+
+		switch value.Kind() {
+		case reflect.Bool:
+			// TODO: an integer will fail this but a string will not. This should be checked against true/fale/True/False
+			dt, ok := v.(bool)
+			if !ok {
+				return &FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type bool"}
+			}
+
+			value.SetBool(dt)
+
+		case reflect.Int:
+			dt, ok := v.(int64)
+			if !ok {
+				return &FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type integer"}
+			}
+
+			value.SetInt(dt)
+
+		case reflect.String:
+			dt, ok := v.(string)
+			if !ok {
+				return &FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type string"}
+			}
+
+			value.SetString(dt)
+
+		case reflect.Map:
+			dt, ok := v.(map[string]interface{})
+			if !ok {
+				return &FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value map[string]interface{} ({ key1 = \"val1\", key2 = \"val2\" })"}
+			}
+
+			if value.IsNil() {
+				value.Set(reflect.MakeMap(value.Type()))
+			}
+
+			for key, val := range dt {
+				kVal := reflect.ValueOf(key)
+				vVal := reflect.ValueOf(val)
+				value.SetMapIndex(kVal, vVal)
+			}
+
+		case reflect.Slice:
+			dt, ok := v.([]interface{})
+			if !ok {
+				return &FieldLoadError{ConfigName: n, FieldName: k,
+					Message: "expected value of type array"}
+			}
+
+			if value.IsNil() {
+				value.Set(reflect.MakeSlice(value.Type(), len(dt), cap(dt)))
+			}
+
+			for i, item := range dt {
+				val, ok := item.(string)
+				if !ok {
+					return &FieldLoadError{ConfigName: n, FieldName: k,
+						Message: fmt.Sprintf(`array item %d: expected value of type string (["Key1:Val1", "Key2:Val2", "KeyOnly"])`, i)}
+				}
+
+				value.Index(i).Set(reflect.ValueOf(val))
+			}
+		}
+	}
+
+	return nil
+}
+
+// FieldLoadError reports an error loading a config field.
+type FieldLoadError struct {
+	ConfigName string
+	FieldName  string
+	Message    string
+}
+
+func (e *FieldLoadError) Error() string {
+	return fmt.Sprintf("error loading '%s' field in %s config: %s", e.FieldName, e.ConfigName, e.Message)
+}
+
+// Is implements Is(error) to support errors.Is
+func (e *FieldLoadError) Is(tgt error) bool {
+	_, ok := tgt.(*FieldLoadError)
+	if !ok {
+		return false
+	}
+	return true
 }
 
 // DuplicateConfigNameError reports a duplicate configuration item name
