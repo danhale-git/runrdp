@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/danhale-git/runrdp/internal/config2/creds"
+
 	"github.com/danhale-git/runrdp/internal/config2/hosts"
 
 	"github.com/spf13/viper"
@@ -13,22 +15,12 @@ import (
 
 type Configuration struct {
 	//Data        map[string]*viper.Viper      // Data from individual config files
-	Hosts       map[string]Host              // Host configs
+	Hosts       map[string]hosts.Host        // Host configs
 	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]
 
-	creds    map[string]Cred      `mapstructure:"cred"`
-	tunnels  map[string]SSHTunnel `mapstructure:"tunnel"`
-	settings map[string]Settings  `mapstructure:"setting"`
-}
-
-// Host can return a hostname or IP address and optionally a port and reference to a cred config.
-type Host interface {
-	Socket() (string, string, error)
-}
-
-// Cred can return valid credentials used to authenticate and RDP session.
-type Cred interface {
-	Retrieve() (string, string, error)
+	creds    map[string]creds.Cred `mapstructure:"cred"`
+	tunnels  map[string]SSHTunnel  `mapstructure:"tunnel"`
+	settings map[string]Settings   `mapstructure:"setting"`
 }
 
 // SSHTunnel has the details for opening an 'SSH tunnel' (SSH port forwarding) including a reference to a Host config.
@@ -66,9 +58,9 @@ func ReadConfigs(readers map[string]io.Reader) (map[string]*viper.Viper, error) 
 func New(v map[string]*viper.Viper) (*Configuration, error) {
 	c := Configuration{}
 
-	c.Hosts = make(map[string]Host)
+	c.Hosts = make(map[string]hosts.Host)
 	c.HostGlobals = make(map[string]map[string]string) // TODO: parse these
-	c.creds = make(map[string]Cred)                    // TODO: parse these
+	c.creds = make(map[string]creds.Cred)              // TODO: parse these
 	c.tunnels = make(map[string]SSHTunnel)             // TODO: parse these
 	c.settings = make(map[string]Settings)             // TODO: parse these
 
@@ -92,7 +84,7 @@ func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, f
 
 		index := 0
 		for name, raw := range all {
-			h := structs[index].(Host)
+			h := structs[index].(hosts.Host)
 			value := reflect.ValueOf(h).Elem()
 			if err := setFields(value, raw.(map[string]interface{})); err != nil {
 				return fmt.Errorf("reading '%s' fields for %s in '%s': %w", key, name, cfgName, err)

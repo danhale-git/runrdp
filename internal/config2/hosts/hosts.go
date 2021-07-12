@@ -1,5 +1,10 @@
 package hosts
 
+// Host can return a hostname or IP address and/or a port.
+type Host interface {
+	Socket() (string, string, error)
+}
+
 // Map is the source of truth for a complete list of implemented host key names and struct functions.
 var Map = map[string]func(int) []interface{}{
 	"basic":  BasicStructs,
