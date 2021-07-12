@@ -1,13 +1,8 @@
 package hosts
 
-// BasicStructs returns a slice containing structs of type hosts.Basic with the given length.
-func BasicStructs(l int) []interface{} {
-	structs := make([]interface{}, l)
-	for i := range structs {
-		structs[i] = &Basic{}
-	}
-
-	return structs
+// BasicStruct a struct of type hosts.Basic.
+func BasicStruct() interface{} {
+	return &Basic{}
 }
 
 // TODO: Implement this

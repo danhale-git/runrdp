@@ -6,9 +6,9 @@ type Host interface {
 }
 
 // Map is the source of truth for a complete list of implemented host key names and struct functions.
-var Map = map[string]func(int) []interface{}{
-	"basic":  BasicStructs,
-	"awsec2": EC2Structs,
+var Map = map[string]func() interface{}{
+	"basic":  BasicStruct,
+	"awsec2": EC2Struct,
 }
 
 // GlobalFieldNames returns a slice of field name strings corresponding to GlobalHostFields

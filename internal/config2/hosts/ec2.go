@@ -9,14 +9,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// EC2Structs returns a slice containing structs of type hosts.EC2 with the given length.
-func EC2Structs(l int) []interface{} {
-	structs := make([]interface{}, l)
-	for i := range structs {
-		structs[i] = &EC2{}
-	}
-
-	return structs
+// EC2Struct returns a struct of type hosts.EC2.
+func EC2Struct() interface{} {
+	return &EC2{}
 }
 
 // TODO: Implement this

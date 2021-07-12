@@ -64,8 +64,8 @@ func New(v map[string]*viper.Viper) (*Configuration, error) {
 	c.tunnels = make(map[string]SSHTunnel)             // TODO: parse these
 	c.settings = make(map[string]Settings)             // TODO: parse these
 
-	for key, structFunc := range hosts.Map {
-		if err := c.parseHosts(v, fmt.Sprintf("host.%s", key), structFunc); err != nil {
+	for key, typeFunc := range hosts.Map {
+		if err := c.parseHosts(v, fmt.Sprintf("host.%s", key), typeFunc); err != nil {
 			return nil, fmt.Errorf("parsing hosts: %w", err)
 		}
 	}
@@ -73,18 +73,17 @@ func New(v map[string]*viper.Viper) (*Configuration, error) {
 	return &c, nil
 }
 
-func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, f func(int) []interface{}) error {
+func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, typeFunc func() interface{}) error {
 	for cfgName, v := range vipers {
 		if !v.IsSet(key) {
 			continue
 		}
 
 		all := v.Get(key).(map[string]interface{})
-		structs := f(len(all))
 
 		index := 0
 		for name, raw := range all {
-			h := structs[index].(hosts.Host)
+			h := typeFunc().(hosts.Host)
 			value := reflect.ValueOf(h).Elem()
 			if err := setFields(value, raw.(map[string]interface{})); err != nil {
 				return fmt.Errorf("reading '%s' fields for %s in '%s': %w", key, name, cfgName, err)
