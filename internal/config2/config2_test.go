@@ -78,7 +78,18 @@ func TestNew(t *testing.T) {
 		t.Errorf("unable to convert hosts.awsec2.ec2test to type hosts.EC2")
 	}
 
-	v, err = vipersFromString(mock.ConfigWithDuplicate)
+	v, err = vipersFromString(`[host.basic.test]
+    address = "35.178.168.122"
+    cred = "mycred"
+
+[host.awsec2.test]
+    tunnel = "mytunnel"
+    private = true
+    getcred = true
+    profile = "default"
+    region = "eu-west-2"
+    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
+`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has a duplicate key")
@@ -86,20 +97,18 @@ func TestNew(t *testing.T) {
 		t.Errorf("unexpecred error returned: expected DuplicateConfigNameError: got %T", errors.Unwrap(err))
 	}
 
-	// TODO: need to make sure config is validated
-	v, err = vipersFromString(mock.ConfigWithUnknownField)
+	v, err = vipersFromString(`[host.awsec2.test]
+	tunnel = "mytunnel"
+    private = 1234
+    getcred = true
+    profile = "default"
+    region = "eu-west-2"
+    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
+`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has an incorrect field value type")
 	} else if !errors.Is(err, &FieldLoadError{}) {
 		t.Errorf("unexpecred error returned: expected FieldLoadError: got %T: %s", errors.Unwrap(err), err)
 	}
-
-	/*if c == nil {
-		return
-	}
-	fmt.Println(len(c.Hosts))
-	for _, h := range c.Hosts {
-		fmt.Printf("%+v\n", h)
-	}*/
 }

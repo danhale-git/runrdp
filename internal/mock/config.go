@@ -24,25 +24,3 @@ const Config = `[cred.awssm.awssmtest]
     key = "C:/Users/danha/.ssh/vpc_key"
     user = "ubuntu"
 `
-
-const ConfigWithDuplicate = `[host.basic.test]
-    address = "35.178.168.122"
-    cred = "mycred"
-
-[host.awsec2.test]
-    tunnel = "mytunnel"
-    private = true
-    getcred = true
-    profile = "default"
-    region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
-`
-
-const ConfigWithUnknownField = `[host.awsec2.test]
-	tunnel = "mytunnel"
-    private = 1234
-    getcred = true
-    profile = "default"
-    region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
-`
