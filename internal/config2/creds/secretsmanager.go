@@ -6,8 +6,18 @@ import (
 	"github.com/danhale-git/runrdp/internal/aws/secrets"
 )
 
-// SecretsManagerCred implements Cred and retrieves a username and password from AWS Secrets Manager.
-type SecretsManagerCred struct {
+// SecretsManagerStruct a struct of type creds.SecretsManager.
+func SecretsManagerStruct() interface{} {
+	return &SecretsManager{}
+}
+
+// TODO: Implement this
+func (b *SecretsManager) ValidateBasic() {
+
+}
+
+// SecretsManager implements Cred and retrieves a username and password from AWS Secrets Manager.
+type SecretsManager struct {
 	UsernameID string
 	PasswordID string
 	Profile    string
@@ -15,7 +25,7 @@ type SecretsManagerCred struct {
 }
 
 // Retrieve returns the values for the configured Secrets Manager keys.
-func (s *SecretsManagerCred) Retrieve() (string, string, error) {
+func (s *SecretsManager) Retrieve() (string, string, error) {
 	username, err := secrets.Get(s.Profile, s.Region, s.UsernameID)
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving username: %s", err)

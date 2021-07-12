@@ -15,7 +15,7 @@ func EC2Struct() interface{} {
 }
 
 // TODO: Implement this
-func ValidateEC2() {
+func (e *EC2) ValidateEC2() {
 
 }
 

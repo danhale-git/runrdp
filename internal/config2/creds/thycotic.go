@@ -5,14 +5,24 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ThycoticCred implements cred and retrieves a username and password from Thycotic Secret Server.
-type ThycoticCred struct {
+// ThycoticStruct a struct of type creds.Thycotic.
+func ThycoticStruct() interface{} {
+	return &Thycotic{}
+}
+
+// TODO: Implement this
+func (t *Thycotic) ValidateBasic() {
+
+}
+
+// Thycotic implements cred and retrieves a username and password from Thycotic Secret Server.
+type Thycotic struct {
 	SecretID int
 }
 
 // Retrieve returns the username and password fields from the secret with the given ID. If either the 'Username' or
 // 'Password' field not in the secret template an error is returned.
-func (t *ThycoticCred) Retrieve() (string, string, error) {
+func (t *Thycotic) Retrieve() (string, string, error) {
 	return thycotic.GetCredentials(
 		t.SecretID,
 		viper.GetString("thycotic-url"),

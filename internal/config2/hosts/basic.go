@@ -6,7 +6,7 @@ func BasicStruct() interface{} {
 }
 
 // TODO: Implement this
-func ValidateBasic() {
+func (b *Basic) ValidateBasic() {
 
 }
 

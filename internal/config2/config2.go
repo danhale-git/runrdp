@@ -60,20 +60,42 @@ func New(v map[string]*viper.Viper) (*Configuration, error) {
 
 	c.Hosts = make(map[string]hosts.Host)
 	c.HostGlobals = make(map[string]map[string]string) // TODO: parse these
-	c.creds = make(map[string]creds.Cred)              // TODO: parse these
-	c.tunnels = make(map[string]SSHTunnel)             // TODO: parse these
-	c.settings = make(map[string]Settings)             // TODO: parse these
+	c.creds = make(map[string]creds.Cred)
+	c.tunnels = make(map[string]SSHTunnel) // TODO: parse these
+	c.settings = make(map[string]Settings) // TODO: parse these
 
 	for key, typeFunc := range hosts.Map {
-		if err := c.parseHosts(v, fmt.Sprintf("host.%s", key), typeFunc); err != nil {
+		h, err := parse(v, fmt.Sprintf("host.%s", key), typeFunc)
+		if err != nil {
 			return nil, fmt.Errorf("parsing hosts: %w", err)
+		}
+		for k, v := range h {
+			if _, ok := c.Hosts[k]; ok {
+				return nil, &DuplicateConfigNameError{Name: k}
+			}
+			c.Hosts[k] = v.(hosts.Host)
+		}
+	}
+
+	for key, typeFunc := range creds.Map {
+		cr, err := parse(v, fmt.Sprintf("cred.%s", key), typeFunc)
+		if err != nil {
+			return nil, fmt.Errorf("parsing creds: %w", err)
+		}
+		for k, v := range cr {
+			if _, ok := c.creds[k]; ok {
+				return nil, &DuplicateConfigNameError{Name: k}
+			}
+			c.creds[k] = v.(creds.Cred)
 		}
 	}
 
 	return &c, nil
 }
 
-func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, typeFunc func() interface{}) error {
+func parse(vipers map[string]*viper.Viper, key string, typeFunc func() interface{}) (map[string]interface{}, error) {
+	parsed := make(map[string]interface{})
+
 	for cfgName, v := range vipers {
 		if !v.IsSet(key) {
 			continue
@@ -81,25 +103,18 @@ func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, t
 
 		all := v.Get(key).(map[string]interface{})
 
-		index := 0
 		for name, raw := range all {
-			h := typeFunc().(hosts.Host)
+			h := typeFunc()
 			value := reflect.ValueOf(h).Elem()
 			if err := setFields(value, raw.(map[string]interface{})); err != nil {
-				return fmt.Errorf("reading '%s' fields for %s in '%s': %w", key, name, cfgName, err)
+				return nil, fmt.Errorf("reading '%s' fields for %s in '%s': %w", key, name, cfgName, err)
 			}
 
-			if _, ok := c.Hosts[name]; ok {
-				return &DuplicateConfigNameError{Name: name}
-			}
-
-			c.Hosts[name] = h
-
-			index++
+			parsed[name] = h
 		}
 	}
 
-	return nil
+	return parsed, nil
 }
 
 // setFields uses reflection to populate the fields of a struct from values in a map. Any values not present in the map
