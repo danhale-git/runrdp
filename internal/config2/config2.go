@@ -116,8 +116,8 @@ func (c *Configuration) parseHosts(vipers map[string]*viper.Viper, key string, f
 func setFields(values reflect.Value, data map[string]interface{}) error {
 	structType := values.Type()
 
+	// Map fields to their lower case names
 	valueMap := make(map[string]reflect.Value)
-
 	for i := 0; i < structType.NumField(); i++ {
 		v := values.Field(i)
 		fieldName := strings.ToLower(structType.Field(i).Name)
@@ -130,11 +130,13 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 		}
 	}
 
+	// Iterate over all the values given in the config entry
 	for k, v := range data {
 		if hosts.FieldNameIsGlobal(k) {
 			continue
 		}
 
+		// Check if the config entry has a corresponding field in the struct
 		_, exists := valueMap[k]
 		if !exists {
 			return fmt.Errorf("config key %s is invalid for type %s", k, structType.Name())
@@ -143,6 +145,7 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 		value := valueMap[k]
 		n := strings.ToLower(structType.Name())
 
+		// Validate the config value and assign it to the struct field
 		switch value.Kind() {
 		case reflect.Bool:
 			// TODO: an integer will fail this but a string will not. This should be checked against true/fale/True/False
