@@ -86,56 +86,20 @@ func New(v map[string]*viper.Viper) (*Configuration, error) {
 	c.tunnels = make(map[string]Tunnel)
 	c.settings = make(map[string]Settings)
 
-	for key, typeFunc := range hosts.Map {
-		h, err := parse(v, fmt.Sprintf("host.%s", key), typeFunc)
-		if err != nil {
-			return nil, fmt.Errorf("parsing hosts: %w", err)
-		}
-		for k, v := range h {
-			if _, ok := c.Hosts[k]; ok {
-				return nil, &DuplicateConfigNameError{Name: k}
-			}
-			c.Hosts[k] = v.(hosts.Host)
-		}
-		g, err := parseGlobals(v, fmt.Sprintf("host.%s", key))
-		for k, v := range g {
-			c.HostGlobals[k] = v.(map[string]string)
-		}
+	if err := parseHosts(v, c.Hosts, c.HostGlobals); err != nil {
+		return nil, fmt.Errorf("parsing hosts: %w", err)
 	}
 
-	for key, typeFunc := range creds.Map {
-		cr, err := parse(v, fmt.Sprintf("cred.%s", key), typeFunc)
-		if err != nil {
-			return nil, fmt.Errorf("parsing creds: %w", err)
-		}
-		for k, v := range cr {
-			if _, ok := c.creds[k]; ok {
-				return nil, &DuplicateConfigNameError{Name: k}
-			}
-			c.creds[k] = v.(creds.Cred)
-		}
+	if err := parseCreds(v, c.creds); err != nil {
+		return nil, fmt.Errorf("parsing creds: %w", err)
 	}
 
-	s, err := parse(v, "settings", func() interface{} { return &Settings{} })
-	if err != nil {
+	if err := parseSettings(v, c.settings); err != nil {
 		return nil, fmt.Errorf("parsing settings: %w", err)
 	}
-	for k, v := range s {
-		if _, ok := c.settings[k]; ok {
-			return nil, &DuplicateConfigNameError{Name: k}
-		}
-		c.settings[k] = *(v.(*Settings))
-	}
 
-	t, err := parse(v, "tunnel", func() interface{} { return &Tunnel{} })
-	if err != nil {
+	if err := parseTunnels(v, c.tunnels); err != nil {
 		return nil, fmt.Errorf("parsing tunnels: %w", err)
-	}
-	for k, v := range t {
-		if _, ok := c.tunnels[k]; ok {
-			return nil, &DuplicateConfigNameError{Name: k}
-		}
-		c.tunnels[k] = *(v.(*Tunnel))
 	}
 
 	return &c, nil

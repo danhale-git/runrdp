@@ -5,9 +5,84 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/danhale-git/runrdp/internal/config2/creds"
+
 	"github.com/danhale-git/runrdp/internal/config2/hosts"
 	"github.com/spf13/viper"
 )
+
+func parseHosts(v map[string]*viper.Viper, hm map[string]hosts.Host, gm map[string]map[string]string) error {
+	for key, typeFunc := range hosts.Map {
+		h, err := parse(v, fmt.Sprintf("host.%s", key), typeFunc)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range h {
+			if _, ok := hm[k]; ok {
+				return &DuplicateConfigNameError{Name: k}
+			}
+			hm[k] = v.(hosts.Host)
+		}
+
+		g, err := parseGlobals(v, fmt.Sprintf("host.%s", key))
+		for k, v := range g {
+			gm[k] = v.(map[string]string)
+		}
+	}
+
+	return nil
+}
+
+func parseCreds(v map[string]*viper.Viper, m map[string]creds.Cred) error {
+	for key, typeFunc := range creds.Map {
+		cr, err := parse(v, fmt.Sprintf("cred.%s", key), typeFunc)
+		if err != nil {
+			return err
+		}
+
+		for k, v := range cr {
+			if _, ok := m[k]; ok {
+				return &DuplicateConfigNameError{Name: k}
+			}
+			m[k] = v.(creds.Cred)
+		}
+	}
+
+	return nil
+}
+
+func parseSettings(v map[string]*viper.Viper, m map[string]Settings) error {
+	s, err := parse(v, "settings", func() interface{} { return &Settings{} })
+	if err != nil {
+		return err
+	}
+
+	for k, v := range s {
+		if _, ok := m[k]; ok {
+			return &DuplicateConfigNameError{Name: k}
+		}
+		m[k] = *(v.(*Settings))
+	}
+
+	return nil
+}
+
+func parseTunnels(v map[string]*viper.Viper, m map[string]Tunnel) error {
+	t, err := parse(v, "tunnel", func() interface{} { return &Tunnel{} })
+	if err != nil {
+		return err
+	}
+
+	for k, v := range t {
+		if _, ok := m[k]; ok {
+			return &DuplicateConfigNameError{Name: k}
+		}
+		m[k] = *(v.(*Tunnel))
+	}
+
+	return nil
+}
 
 func parse(vipers map[string]*viper.Viper, key string, typeFunc func() interface{}) (map[string]interface{}, error) {
 	parsed := make(map[string]interface{})
