@@ -1,5 +1,6 @@
 package mock
 
+// Config is a mock of a config with all entry types
 const Config = `[cred.awssm.awssmtest]
     usernameid = "TestInstanceUsername"
     passwordid = "TestInstancePassword"
@@ -23,4 +24,20 @@ const Config = `[cred.awssm.awssmtest]
     localport = "3390"
     key = "C:/Users/me/.ssh/key"
     user = "ubuntu"
+
+[settings.settingstest]
+	height = 200
+	width = 200
+	scale = 200
 `
+
+// ConfigKeys returns a slice containing all expected mock config keys
+func ConfigKeys() []string {
+	return []string{
+		"cred.awssm.awssmtest",
+		"host.awsec2.awsec2test",
+		"host.basic.basictest",
+		"tunnel.tunneltest",
+		"settings.settingstest",
+	}
+}

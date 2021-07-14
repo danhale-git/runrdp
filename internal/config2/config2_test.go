@@ -44,11 +44,12 @@ func TestReadConfigs(t *testing.T) {
 		t.Errorf("unexpected error returned: %s", err)
 	}
 
-	testKey := "host.awsec2.awsec2test"
-
-	if !v["config1"].IsSet(testKey) {
-		t.Errorf("key '%s' should be set but is not", testKey)
+	for _, testKey := range mock.ConfigKeys() {
+		if !v["config1"].IsSet(testKey) {
+			t.Errorf("expected a config entry with key '%s' but didn't find one", testKey)
+		}
 	}
+
 }
 
 func TestNew(t *testing.T) {
