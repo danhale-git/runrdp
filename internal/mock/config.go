@@ -21,10 +21,14 @@ const Config = `[cred.awssm.awssmtest]
     includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
     excludetags = ["mytag;myothervalue"]
 
-
 [host.basic.basictest]
-    address = "35.178.168.122"
-    cred = "testcred"
+	cred = "global"
+	proxy = "global" 
+	address = "global" 
+	port = "global" 
+	username = "global" 
+	tunnel = "global" 
+	settings = "global"     
 
 [tunnel.tunneltest]
     host = "myiphost"

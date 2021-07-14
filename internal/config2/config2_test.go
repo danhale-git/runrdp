@@ -80,13 +80,6 @@ func TestNew(t *testing.T) {
 		t.Errorf("failed to get or convert type *hosts.EC2")
 	}
 
-	// Basic has no fields
-	/*if ec2, ok := c.Hosts["basictest"].(*hosts.Basic); ok {
-		checkFields(t, ec2)
-	} else {
-		t.Errorf("unable to convert awsec2test to type hosts.EC2")
-	}*/
-
 	if awssmtest, ok := c.creds["awssmtest"].(*creds.SecretsManager); ok {
 		checkFields(t, awssmtest)
 	} else {
@@ -104,6 +97,18 @@ func TestNew(t *testing.T) {
 
 	tunneltest := c.tunnels["tunneltest"]
 	checkFields(t, &tunneltest)
+
+	// Basic doesn't have any fields so we use it to test global fields
+	for _, g := range hosts.GlobalFieldNames() {
+		if globalVal, ok := c.HostGlobals["basictest"][g]; ok {
+			if globalVal != "global" {
+				t.Errorf("config basictest has unexpected value for global field %s: expected 'global': got '%s'",
+					g, globalVal)
+			}
+		} else {
+			t.Errorf("config for basictest is missing global field %s", g)
+		}
+	}
 
 	v, err = vipersFromString(`
 [host.basic.test]
