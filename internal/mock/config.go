@@ -7,13 +7,20 @@ const Config = `[cred.awssm.awssmtest]
     region = "eu-west-2"
     profile = "default"
 
+[cred.thycotic.thycotictest]
+	secretid = 1234
+
 [host.awsec2.awsec2test]
-    tunnel = "mytunnel"
+    id = "i-12345abc"
+	tunnel = "mytunnel"
     private = true
     cred = "awssmtest"
+	getcred = true
     profile = "TESTVALUE"
     region = "eu-west-2"
     includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
+    excludetags = ["mytag;myothervalue"]
+
 
 [host.basic.basictest]
     address = "35.178.168.122"

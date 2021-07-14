@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/danhale-git/runrdp/internal/config2/creds"
 
 	"github.com/danhale-git/runrdp/internal/config2/hosts"
 
@@ -71,15 +74,39 @@ func TestNew(t *testing.T) {
 		}
 	}
 
-	if ec2, ok := c.Hosts["awsec2test"].(*hosts.EC2); ok {
-		if ec2.Profile != "TESTVALUE" {
-			t.Errorf("unexpected value for ec2test.Profile: expected 'TESTVALUE': got '%s'", ec2.Profile)
-		}
+	if awsec2test, ok := c.Hosts["awsec2test"].(*hosts.EC2); ok {
+		checkFields(t, awsec2test)
 	} else {
-		t.Errorf("unable to convert hosts.awsec2.ec2test to type hosts.EC2")
+		t.Errorf("failed to get or convert type *hosts.EC2")
 	}
 
-	v, err = vipersFromString(`[host.basic.test]
+	// Basic has no fields
+	/*if ec2, ok := c.Hosts["basictest"].(*hosts.Basic); ok {
+		checkFields(t, ec2)
+	} else {
+		t.Errorf("unable to convert awsec2test to type hosts.EC2")
+	}*/
+
+	if awssmtest, ok := c.creds["awssmtest"].(*creds.SecretsManager); ok {
+		checkFields(t, awssmtest)
+	} else {
+		t.Errorf("failed to get or convert type *creds.SecretsManager")
+	}
+
+	if thycotictest, ok := c.creds["thycotictest"].(*creds.Thycotic); ok {
+		checkFields(t, thycotictest)
+	} else {
+		t.Errorf("unable to convert awsec2test to type *creds.Thycotic")
+	}
+
+	settingstest := c.settings["settingstest"]
+	checkFields(t, &settingstest)
+
+	tunneltest := c.tunnels["tunneltest"]
+	checkFields(t, &tunneltest)
+
+	v, err = vipersFromString(`
+[host.basic.test]
     address = "35.178.168.122"
     cred = "mycred"
 
@@ -89,8 +116,7 @@ func TestNew(t *testing.T) {
     getcred = true
     profile = "default"
     region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
-`)
+    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has a duplicate key")
@@ -98,18 +124,72 @@ func TestNew(t *testing.T) {
 		t.Errorf("unexpecred error returned: expected DuplicateConfigNameError: got %T", errors.Unwrap(err))
 	}
 
-	v, err = vipersFromString(`[host.awsec2.test]
+	v, err = vipersFromString(`
+[host.awsec2.test]
 	tunnel = "mytunnel"
     private = 1234
     getcred = true
     profile = "default"
     region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
-`)
+    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has an incorrect field value type")
 	} else if !errors.Is(err, &FieldLoadError{}) {
 		t.Errorf("unexpecred error returned: expected FieldLoadError: got %T: %s", errors.Unwrap(err), err)
 	}
+}
+
+func checkFields(t *testing.T, str interface{}) {
+	value := reflect.ValueOf(str).Elem()
+	if zero, name := structHasZeroField(value); zero {
+		t.Errorf("%s field %s has a zero value.", value.Type().Name(), name)
+	}
+}
+
+func structHasZeroField(values reflect.Value) (bool, string) {
+	structType := values.Type()
+
+	for i := 0; i < structType.NumField(); i++ {
+		// It is not possible to check unexported fields
+		if structType.Field(i).PkgPath != "" {
+			continue
+		}
+
+		v := values.Field(i)
+
+		if isZero(v) {
+			return true, structType.Field(i).Name
+		}
+	}
+
+	return false, ""
+}
+
+func isZero(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Func, reflect.Map, reflect.Slice:
+		return v.IsNil()
+	case reflect.Array:
+		z := true
+		for i := 0; i < v.Len(); i++ {
+			z = z && isZero(v.Index(i))
+		}
+		return z
+	case reflect.Struct:
+		z := true
+		for i := 0; i < v.NumField(); i++ {
+			if v.Field(i).CanSet() {
+				z = z && isZero(v.Field(i))
+			}
+		}
+		return z
+	case reflect.Ptr:
+		return isZero(reflect.Indirect(v))
+	}
+	// Compare other types directly:
+	z := reflect.Zero(v.Type())
+	result := v.Interface() == z.Interface()
+
+	return result
 }
