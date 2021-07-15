@@ -11,6 +11,26 @@ import (
 	"github.com/spf13/viper"
 )
 
+func parseConfiguration(v map[string]*viper.Viper, c *Configuration) error {
+	if err := parseHosts(v, c.Hosts, c.HostGlobals); err != nil {
+		return fmt.Errorf("parsing hosts: %w", err)
+	}
+
+	if err := parseCreds(v, c.creds); err != nil {
+		return fmt.Errorf("parsing creds: %w", err)
+	}
+
+	if err := parseSettings(v, c.settings); err != nil {
+		return fmt.Errorf("parsing settings: %w", err)
+	}
+
+	if err := parseTunnels(v, c.tunnels); err != nil {
+		return fmt.Errorf("parsing tunnels: %w", err)
+	}
+
+	return nil
+}
+
 func parseHosts(v map[string]*viper.Viper, hm map[string]hosts.Host, gm map[string]map[string]string) error {
 	for key, typeFunc := range hosts.Map {
 		h, err := parse(v, fmt.Sprintf("host.%s", key), typeFunc)
