@@ -143,6 +143,33 @@ func TestNew(t *testing.T) {
 	} else if !errors.Is(err, &FieldLoadError{}) {
 		t.Errorf("unexpecred error returned: expected FieldLoadError: got %T: %s", errors.Unwrap(err), err)
 	}
+
+	v, err = vipersFromString(`
+[host.awsec2.test]
+	tunnel = "mytunnel"
+    private = 1234
+    getcred = true
+    profile = "default"
+    region = "eu-west-2"
+    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]`)
+	_, err = New(v)
+	if err == nil {
+		t.Errorf("no error returned when config has an incorrect field value type")
+	} else if !errors.Is(err, &FieldLoadError{}) {
+		t.Errorf("unexpecred error returned: expected FieldLoadError: got %T: %s", errors.Unwrap(err), err)
+	}
+
+	v, err = vipersFromString(`
+[settings.settingstest]
+	height = 500000
+	width = 200
+	scale = 200`)
+	_, err = New(v)
+	if err == nil {
+		t.Errorf("no error returned when config has invalid values")
+	} else if !errors.Is(err, &InvalidConfigError{}) {
+		t.Errorf("unexpecred error returned: expected InvalidConfigError: got %T: %s", errors.Unwrap(err), err)
+	}
 }
 
 func checkFields(t *testing.T, str interface{}) {

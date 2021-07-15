@@ -14,9 +14,8 @@ func EC2Struct() interface{} {
 	return &EC2{}
 }
 
-// TODO: Implement this
-func (e *EC2) ValidateEC2() {
-
+func (e EC2) Validate() error {
+	return nil
 }
 
 // EC2 defines an AWS EC2 instance to connect to by getting it's address from the AWS API.

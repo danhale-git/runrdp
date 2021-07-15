@@ -10,9 +10,8 @@ func ThycoticStruct() interface{} {
 	return &Thycotic{}
 }
 
-// TODO: Implement this
-func (t *Thycotic) ValidateBasic() {
-
+func (t Thycotic) Validate() error {
+	return nil
 }
 
 // Thycotic implements cred and retrieves a username and password from Thycotic Secret Server.

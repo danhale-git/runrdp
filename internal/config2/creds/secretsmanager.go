@@ -11,9 +11,8 @@ func SecretsManagerStruct() interface{} {
 	return &SecretsManager{}
 }
 
-// TODO: Implement this
-func (b *SecretsManager) ValidateBasic() {
-
+func (s *SecretsManager) Validate() error {
+	return nil
 }
 
 // SecretsManager implements Cred and retrieves a username and password from AWS Secrets Manager.

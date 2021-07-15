@@ -5,9 +5,8 @@ func BasicStruct() interface{} {
 	return &Basic{}
 }
 
-// TODO: Implement this
-func (b *Basic) ValidateBasic() {
-
+func (b Basic) Validate() error {
+	return nil
 }
 
 // Basic defines a host to connect to using an IP or hostname.
@@ -16,6 +15,6 @@ func (b *Basic) ValidateBasic() {
 type Basic struct{}
 
 // Socket returns this host's IP or hostname.
-func (h *Basic) Socket() (string, string, error) {
+func (b *Basic) Socket() (string, string, error) {
 	return "", "", nil
 }

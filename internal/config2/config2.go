@@ -30,6 +30,10 @@ type Tunnel struct {
 	User      string `mapstructure:"user"`
 }
 
+func (t Tunnel) Validate() error {
+	return nil
+}
+
 // Settings is the configuration of .RDP file settings.
 // https://docs.microsoft.com/en-us/windows-server/remote/remote-desktop-services/clients/rdp-files
 type Settings struct {
@@ -38,28 +42,29 @@ type Settings struct {
 	Scale  int `mapstructure:"scale"`
 }
 
-/*if settings.Width != 0 && (settings.Width < 200 || settings.Width > 8192) {
-fmt.Printf("Failed to load settings '%s = %d': width value is invalid, must be above 200 and below 8192\n", itemKey, settings.Width)
-continue
-}
-
-if settings.Height != 0 && (settings.Height < 200 || settings.Height > 8192) {
-fmt.Printf("Failed to load settings '%s = %d': height value is invalid, must be above 200 and below 8192\n", itemKey, settings.Height)
-continue
-}
-
-if settings.Scale != 0 && func() bool {
-	// Scale is not in list of valid values
-	for _, v := range []int{100, 125, 150, 175, 200, 250, 300, 400, 500} {
-		if settings.Scale == v {
-			return false
-		}
+func (s Settings) Validate() error {
+	if s.Width != 0 && (s.Width < 200 || s.Width > 8192) {
+		return fmt.Errorf("width value is %d invalid, must be above 200 and below 8192\n", s.Width)
 	}
-	return true
-}() {
-fmt.Printf("Failed to load settings '%s': scale value is invalid, must be one of 100, 125, 150, 175, 200, 250, 300, 400, 500\n", itemKey)
-continue
-}*/
+
+	if s.Height != 0 && (s.Height < 200 || s.Height > 8192) {
+		return fmt.Errorf("height value %d is invalid, must be above 200 and below 8192\n", s.Height)
+	}
+
+	if s.Scale != 0 && func() bool {
+		// Scale is not in list of valid values
+		for _, v := range []int{100, 125, 150, 175, 200, 250, 300, 400, 500} {
+			if s.Scale == v {
+				return false
+			}
+		}
+		return true
+	}() {
+		return fmt.Errorf("scale value %d is invalid, must be one of 100, 125, 150, 175, 200, 250, 300, 400, 500\n", s.Scale)
+	}
+
+	return nil
+}
 
 // ReadConfigs reads a map of io.Reader into a matching map of viper.Viper.
 func ReadConfigs(readers map[string]io.Reader) (map[string]*viper.Viper, error) {

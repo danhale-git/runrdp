@@ -23,6 +23,10 @@ func parseHosts(v map[string]*viper.Viper, hm map[string]hosts.Host, gm map[stri
 				return &DuplicateConfigNameError{Name: k}
 			}
 			hm[k] = v.(hosts.Host)
+
+			if err := hm[k].Validate(); err != nil {
+				return &InvalidConfigError{Reason: fmt.Errorf("%s configuration is invalid: %w", k, err)}
+			}
 		}
 
 		g, err := parseGlobals(v, fmt.Sprintf("host.%s", key))
@@ -46,6 +50,10 @@ func parseCreds(v map[string]*viper.Viper, m map[string]creds.Cred) error {
 				return &DuplicateConfigNameError{Name: k}
 			}
 			m[k] = v.(creds.Cred)
+
+			if err := m[k].Validate(); err != nil {
+				return &InvalidConfigError{Reason: fmt.Errorf("%s configuration is invalid: %w", k, err)}
+			}
 		}
 	}
 
@@ -63,6 +71,10 @@ func parseSettings(v map[string]*viper.Viper, m map[string]Settings) error {
 			return &DuplicateConfigNameError{Name: k}
 		}
 		m[k] = *(v.(*Settings))
+
+		if err := m[k].Validate(); err != nil {
+			return &InvalidConfigError{Reason: fmt.Errorf("%s configuration is invalid: %w", k, err)}
+		}
 	}
 
 	return nil
@@ -79,6 +91,10 @@ func parseTunnels(v map[string]*viper.Viper, m map[string]Tunnel) error {
 			return &DuplicateConfigNameError{Name: k}
 		}
 		m[k] = *(v.(*Tunnel))
+
+		if err := m[k].Validate(); err != nil {
+			return &InvalidConfigError{Reason: fmt.Errorf("%s configuration is invalid: %w", k, err)}
+		}
 	}
 
 	return nil
@@ -285,6 +301,24 @@ func (e *DuplicateConfigNameError) Error() string {
 // Is implements Is(error) to support errors.Is
 func (e *DuplicateConfigNameError) Is(tgt error) bool {
 	_, ok := tgt.(*DuplicateConfigNameError)
+	if !ok {
+		return false
+	}
+	return true
+}
+
+// InvalidConfigError reports a configuration which was parsed successfully but has invalid values
+type InvalidConfigError struct {
+	Reason error
+}
+
+func (e *InvalidConfigError) Error() string {
+	return fmt.Sprintf("config validation failed: %s", e.Reason)
+}
+
+// Is implements Is(error) to support errors.Is
+func (e *InvalidConfigError) Is(tgt error) bool {
+	_, ok := tgt.(*InvalidConfigError)
 	if !ok {
 		return false
 	}
