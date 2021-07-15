@@ -236,6 +236,6 @@ func TestConfiguration_HostCredentials(t *testing.T) {
 	}
 }
 
-func (c *Configuration) AddCred(name string, cred creds.Cred) {
+func (c *Configuration) AddCred(name string, cred Cred) {
 	c.creds[name] = cred
 }

@@ -31,7 +31,7 @@ func parseConfiguration(v map[string]*viper.Viper, c *Configuration) error {
 	return nil
 }
 
-func parseHosts(v map[string]*viper.Viper, hm map[string]hosts.Host, gm map[string]map[string]string) error {
+func parseHosts(v map[string]*viper.Viper, hm map[string]Host, gm map[string]map[string]string) error {
 	for key, typeFunc := range hosts.Map {
 		h, err := parse(v, fmt.Sprintf("host.%s", key), typeFunc)
 		if err != nil {
@@ -42,7 +42,7 @@ func parseHosts(v map[string]*viper.Viper, hm map[string]hosts.Host, gm map[stri
 			if _, ok := hm[k]; ok {
 				return &DuplicateConfigNameError{Name: k}
 			}
-			hm[k] = v.(hosts.Host)
+			hm[k] = v.(Host)
 
 			if err := hm[k].Validate(); err != nil {
 				return &InvalidConfigError{Reason: fmt.Errorf("%s configuration is invalid: %w", k, err)}
@@ -58,7 +58,7 @@ func parseHosts(v map[string]*viper.Viper, hm map[string]hosts.Host, gm map[stri
 	return nil
 }
 
-func parseCreds(v map[string]*viper.Viper, m map[string]creds.Cred) error {
+func parseCreds(v map[string]*viper.Viper, m map[string]Cred) error {
 	for key, typeFunc := range creds.Map {
 		cr, err := parse(v, fmt.Sprintf("cred.%s", key), typeFunc)
 		if err != nil {
@@ -69,7 +69,7 @@ func parseCreds(v map[string]*viper.Viper, m map[string]creds.Cred) error {
 			if _, ok := m[k]; ok {
 				return &DuplicateConfigNameError{Name: k}
 			}
-			m[k] = v.(creds.Cred)
+			m[k] = v.(Cred)
 
 			if err := m[k].Validate(); err != nil {
 				return &InvalidConfigError{Reason: fmt.Errorf("%s configuration is invalid: %w", k, err)}

@@ -6,21 +6,32 @@ import (
 
 	"github.com/sahilm/fuzzy"
 
-	"github.com/danhale-git/runrdp/internal/config2/creds"
-
 	"github.com/danhale-git/runrdp/internal/config2/hosts"
 
 	"github.com/spf13/viper"
 )
 
+// Configuration holds data from all parsed config files as structs.
 type Configuration struct {
 	//Data        map[string]*viper.Viper      // Data from individual config files
-	Hosts       map[string]hosts.Host        // Host configs
+	Hosts       map[string]Host              // Host configs
 	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]
 
-	creds    map[string]creds.Cred `mapstructure:"cred"`
-	tunnels  map[string]Tunnel     `mapstructure:"tunnel"`
-	settings map[string]Settings   `mapstructure:"setting"`
+	creds    map[string]Cred     `mapstructure:"cred"`
+	tunnels  map[string]Tunnel   `mapstructure:"tunnel"`
+	settings map[string]Settings `mapstructure:"setting"`
+}
+
+// Host can return a hostname or IP address and/or a port.
+type Host interface {
+	Socket() (string, string, error)
+	Validate() error
+}
+
+// Cred can return valid credentials used to authenticate an RDP session.
+type Cred interface {
+	Retrieve() (string, string, error)
+	Validate() error
 }
 
 // ReadConfigs reads a map of io.Reader into a matching map of viper.Viper.
@@ -42,9 +53,9 @@ func ReadConfigs(readers map[string]io.Reader) (map[string]*viper.Viper, error) 
 func New(v map[string]*viper.Viper) (*Configuration, error) {
 	c := Configuration{}
 
-	c.Hosts = make(map[string]hosts.Host)
+	c.Hosts = make(map[string]Host)
 	c.HostGlobals = make(map[string]map[string]string)
-	c.creds = make(map[string]creds.Cred)
+	c.creds = make(map[string]Cred)
 	c.tunnels = make(map[string]Tunnel)
 	c.settings = make(map[string]Settings)
 
@@ -121,9 +132,9 @@ func (c *Configuration) HostCredentials(key string) (string, string, error) {
 		}
 	}
 
-	// Check if the host itself implements creds.Cred
+	// Check if the host itself implements Cred
 	h := c.Hosts[key]
-	hostCred, ok := h.(creds.Cred)
+	hostCred, ok := h.(Cred)
 	if ok {
 		username[1], password[1], err = hostCred.Retrieve()
 	}
