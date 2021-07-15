@@ -3,6 +3,7 @@ package config2
 import (
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"testing"
 
@@ -15,14 +16,17 @@ import (
 	"github.com/danhale-git/runrdp/internal/mock"
 )
 
-func vipersFromString(s string) (map[string]*viper.Viper, error) {
+func vipersFromString(s string) map[string]*viper.Viper {
 	return vipersFromStrings([]string{s})
 }
 
-func vipersFromStrings(s []string) (map[string]*viper.Viper, error) {
+func vipersFromStrings(s []string) map[string]*viper.Viper {
 	readers := readersFromStrings(s)
-
-	return ReadConfigs(readers)
+	v, err := ReadConfigs(readers)
+	if err != nil {
+		log.Fatalf("unexpected error parsing test config: %s", err)
+	}
+	return v
 }
 
 func readersFromStrings(s []string) map[string]io.Reader {
@@ -53,7 +57,7 @@ func TestReadConfigs(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	v, err := vipersFromString(mock.Config)
+	v := vipersFromString(mock.Config)
 
 	c, err := New(v)
 	if err != nil {
@@ -85,5 +89,76 @@ func TestNew(t *testing.T) {
 	if _, ok := c.tunnels["tunneltest"]; !ok {
 		t.Errorf("cred with key 'tunneltest' was not loaded into the configuration")
 	}
+}
 
+func TestConfiguration_HostsSortedByPattern(t *testing.T) {
+	v := vipersFromString(`
+[host.basic.abc]
+	address = "1.2.3.4"
+[host.basic.abc123]
+	address = "1.2.3.4"
+[host.basic.abc12345]
+	address = "1.2.3.4"
+[host.basic.zbc]
+	address = "1.2.3.4"`)
+	c, err := New(v)
+	if err != nil {
+		t.Errorf("unexpected error creating config: %s", err)
+	}
+
+	got := c.HostsSortedByPattern("abc")
+
+	expected := []string{"abc", "abc123", "abc12345"}
+
+	if len(got) != len(expected) {
+		t.Fatalf("incorrect number of values returned: expected %d (%s): got %d (%s)",
+			len(expected), expected, len(got), got)
+	}
+
+	for i, g := range got {
+		if expected[i] != g {
+			t.Fatalf("unexpected values returned: expected %s: got %s", expected, got)
+		}
+	}
+}
+
+func TestConfiguration_HostKeys(t *testing.T) {
+	v := vipersFromString(`
+[host.basic.abc]
+	address = "1.2.3.4"
+[host.basic.abc123]
+	address = "1.2.3.4"
+[host.basic.abc12345]
+	address = "1.2.3.4"`)
+	c, err := New(v)
+	if err != nil {
+		t.Errorf("unexpected error creating config: %s", err)
+	}
+
+	got := c.HostKeys()
+
+	expected := []string{"abc", "abc123", "abc12345"}
+
+	if len(got) != len(expected) {
+		t.Fatalf("incorrect number of values returned: expected %d (%s): got %d (%s)",
+			len(expected), expected, len(got), got)
+	}
+}
+
+func TestConfiguration_HostExists(t *testing.T) {
+	v := vipersFromString(`
+[host.basic.abc]
+	address = "1.2.3.4"`)
+	c, err := New(v)
+	if err != nil {
+		t.Errorf("unexpected error creating config: %s", err)
+	}
+
+	if !c.HostExists("abc") {
+		t.Errorf("host 'abc' was expected to exist but did not")
+	}
+
+	if c.HostExists("xyz") {
+		t.Errorf("host 'xyz' was reported to exist but is not configured")
+	}
 }

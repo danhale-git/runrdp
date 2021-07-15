@@ -13,7 +13,7 @@ import (
 )
 
 func TestParseConfiguration(t *testing.T) {
-	v, err := vipersFromString(mock.Config)
+	v := vipersFromString(mock.Config)
 
 	c, err := New(v)
 	if err != nil {
@@ -56,7 +56,7 @@ func TestParseConfiguration(t *testing.T) {
 		}
 	}
 
-	v, err = vipersFromString(`
+	v = vipersFromString(`
 [host.basic.test]
     address = "35.178.168.122"
     cred = "mycred"
@@ -75,7 +75,7 @@ func TestParseConfiguration(t *testing.T) {
 		t.Errorf("unexpecred error returned: expected DuplicateConfigNameError: got %T", errors.Unwrap(err))
 	}
 
-	v, err = vipersFromString(`
+	v = vipersFromString(`
 [host.awsec2.test]
 	tunnel = "mytunnel"
     private = 1234
@@ -90,7 +90,7 @@ func TestParseConfiguration(t *testing.T) {
 		t.Errorf("unexpecred error returned: expected FieldLoadError: got %T: %s", errors.Unwrap(err), err)
 	}
 
-	v, err = vipersFromString(`
+	v = vipersFromString(`
 [host.awsec2.test]
 	tunnel = "mytunnel"
     private = 1234
@@ -105,7 +105,7 @@ func TestParseConfiguration(t *testing.T) {
 		t.Errorf("unexpecred error returned: expected FieldLoadError: got %T: %s", errors.Unwrap(err), err)
 	}
 
-	v, err = vipersFromString(`
+	v = vipersFromString(`
 [settings.settingstest]
 	height = 500000
 	width = 200

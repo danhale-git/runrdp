@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/sahilm/fuzzy"
+
 	"github.com/danhale-git/runrdp/internal/config2/creds"
 
 	"github.com/danhale-git/runrdp/internal/config2/hosts"
@@ -51,4 +53,37 @@ func New(v map[string]*viper.Viper) (*Configuration, error) {
 	}
 
 	return &c, nil
+}
+
+// HostsSortedByPattern returns a slice of host config names matching the given pattern, in order closest match first.
+func (c *Configuration) HostsSortedByPattern(pattern string) []string {
+	keys := c.HostKeys()
+
+	sorted := make([]string, 0)
+
+	matches := fuzzy.Find(pattern, keys)
+	for _, m := range matches {
+		sorted = append(sorted, m.Str)
+	}
+
+	return sorted
+}
+
+// HostKeys returns a slice containing the names of all host config entries.
+func (c *Configuration) HostKeys() []string {
+	keys := make([]string, len(c.Hosts))
+	index := 0
+
+	for k := range c.Hosts {
+		keys[index] = k
+		index++
+	}
+
+	return keys
+}
+
+// HostExists returns true if the given host is in the configuration.
+func (c *Configuration) HostExists(key string) bool {
+	_, ok := c.Hosts[key]
+	return ok
 }
