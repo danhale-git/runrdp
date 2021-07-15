@@ -12,7 +12,24 @@ var Map = map[string]func() interface{}{
 	"awsec2": EC2Struct,
 }
 
-// GlobalFieldNames returns a slice of field name strings corresponding to GlobalHostFields
+const (
+	GlobalCred GlobalFields = iota
+	GlobalProxy
+	GlobalAddress
+	GlobalPort
+	GlobalUsername
+	GlobalTunnel
+	GlobalSettings
+)
+
+// GlobalFields are the names of fields which may be configured in any host.
+type GlobalFields int
+
+func (p GlobalFields) String() string {
+	return GlobalFieldNames()[p]
+}
+
+// GlobalFieldNames returns a slice of field name strings corresponding to GlobalFields
 func GlobalFieldNames() []string {
 	return []string{
 		"cred",

@@ -52,3 +52,51 @@ func ConfigKeys() []string {
 		"settings.settingstest",
 	}
 }
+
+// HostCred implements creds.Cred and hosts.Host and defines literal credentials or socket for testing purposes.
+type HostCred struct {
+	Username, Password string
+	Address, Port      string
+}
+
+// Retrieve returns the Username and Password fields.
+func (h *HostCred) Retrieve() (string, string, error) {
+	return h.Username, h.Password, nil
+}
+
+// Socket returns the Address and Port fields.
+func (h *HostCred) Socket() (string, string, error) {
+	return h.Address, h.Port, nil
+}
+
+func (h HostCred) Validate() error {
+	return nil
+}
+
+// Host implements hosts.Host and defines literal socket values for testing purposes.
+type Host struct {
+	Address, Port string
+}
+
+// Socket returns the Address and Port fields.
+func (h *Host) Socket() (string, string, error) {
+	return h.Address, h.Port, nil
+}
+
+func (h Host) Validate() error {
+	return nil
+}
+
+// Cred implements creds.Cred and defines literal credentials for testing purposes.
+type Cred struct {
+	Username, Password string
+}
+
+// Retrieve returns the Username and Password fields.
+func (h *Cred) Retrieve() (string, string, error) {
+	return h.Username, h.Password, nil
+}
+
+func (h Cred) Validate() error {
+	return nil
+}

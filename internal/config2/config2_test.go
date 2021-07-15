@@ -162,3 +162,80 @@ func TestConfiguration_HostExists(t *testing.T) {
 		t.Errorf("host 'xyz' was reported to exist but is not configured")
 	}
 }
+
+func TestConfiguration_HostCredentials(t *testing.T) {
+	c, err := New(map[string]*viper.Viper{})
+	if err != nil {
+		t.Errorf("unexpected error creating config: %s", err)
+	}
+
+	cred := &mock.Cred{
+		Username: "creduser",
+		Password: "credpassword",
+	}
+
+	host := &mock.Host{
+		Address: "1.2.3.4",
+		Port:    "1234",
+	}
+
+	hostCred := &mock.HostCred{
+		Username: "hostuser",
+		Password: "hostpassword",
+		Address:  "1.2.3.4",
+		Port:     "1234",
+	}
+
+	c.Hosts["testhost"] = hostCred
+	c.HostGlobals["testhost"] = map[string]string{
+		"cred":     "testcred",
+		"username": "globaluser",
+	}
+	c.AddCred("testcred", cred)
+
+	user, pass, err := c.HostCredentials("testhost")
+	if err != nil {
+		t.Errorf("unexpected error returned getting host credentials: %s", err)
+	}
+
+	if user != "globaluser" {
+		t.Errorf("unexpected username '%s': expected 'globaluser'",
+			user)
+	}
+
+	if pass != "hostpassword" {
+		t.Errorf("unexpected password '%s': expected 'credpassword'", pass)
+	}
+
+	// Remove global username so cred host username takes priority
+	c.HostGlobals["testhost"] = map[string]string{
+		"cred": "testcred",
+	}
+
+	user, pass, err = c.HostCredentials("testhost")
+	if err != nil {
+		t.Errorf("unexpected error returned getting host credentials: %s", err)
+	}
+
+	if user != "hostuser" {
+		t.Errorf("unexpected username '%s': expected 'hostuser'",
+			user)
+	}
+
+	// Remove host implementation of cred, only the global cred reference to the Cred object remains
+	c.Hosts["testhost"] = host
+
+	user, pass, err = c.HostCredentials("testhost")
+	if err != nil {
+		t.Errorf("unexpected error returned getting host credentials: %s", err)
+	}
+
+	if user != "creduser" {
+		t.Errorf("unexpected username '%s': expected 'creduser'",
+			user)
+	}
+}
+
+func (c *Configuration) AddCred(name string, cred creds.Cred) {
+	c.creds[name] = cred
+}

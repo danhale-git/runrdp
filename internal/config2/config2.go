@@ -87,3 +87,65 @@ func (c *Configuration) HostExists(key string) bool {
 	_, ok := c.Hosts[key]
 	return ok
 }
+
+// HostCredentials returns the username and password for this host.
+//
+// Either a username or a password may be provided through various means. Each is checked and there is an order of
+// preference to determine which is used.
+//
+// Sources from least to most preferred:
+//
+// - Config file 'cred' field credentials
+//
+// - Host credentials, where the Host also implements Cred
+//
+// - Config file global 'username' field (username only)
+func (c *Configuration) HostCredentials(key string) (string, string, error) {
+	username := make([]string, 3)
+	password := make([]string, 3)
+
+	credKey, ok := c.HostGlobals[key][hosts.GlobalCred.String()]
+
+	var err error
+
+	// Check for normal cred config entries
+	if ok {
+		cred, ok := c.creds[credKey]
+		if !ok {
+			return "", "", fmt.Errorf("cred config '%s' not found", credKey)
+		}
+
+		username[0], password[0], err = cred.Retrieve()
+		if err != nil {
+			return "", "", fmt.Errorf("retrieving credentials for %s: %w", credKey, err)
+		}
+	}
+
+	// Check if the host itself implements creds.Cred
+	h := c.Hosts[key]
+	hostCred, ok := h.(creds.Cred)
+	if ok {
+		username[1], password[1], err = hostCred.Retrieve()
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("retrieving host credentials for %s: %w", key, err)
+	}
+
+	// Check if a literal username is defined using the global username variable (not permitted for passwords)
+	username[2] = c.HostGlobals[key][hosts.GlobalUsername.String()]
+
+	// Apply the order of preference
+	user, pass := "", ""
+
+	for i := 0; i < 3; i++ {
+		if username[i] != "" {
+			user = username[i]
+		}
+
+		if password[i] != "" {
+			pass = password[i]
+		}
+	}
+
+	return user, pass, nil
+}
