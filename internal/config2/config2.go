@@ -13,11 +13,11 @@ import (
 
 // Configuration holds data from all parsed config files as structs.
 type Configuration struct {
-	//Data        map[string]*viper.Viper      // Data from individual config files
-	Hosts       map[string]Host              // Host configs
-	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]
+	//Data        map[string]*viper.Viper    // Data from individual config files
+	Hosts       map[string]Host              // All configured hosts
+	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]. All keys exist for all hosts, undefined values are empty strings
 
-	creds    map[string]Cred     `mapstructure:"cred"`
+	Creds    map[string]Cred     `mapstructure:"cred"`
 	tunnels  map[string]Tunnel   `mapstructure:"tunnel"`
 	settings map[string]Settings `mapstructure:"setting"`
 }
@@ -55,7 +55,7 @@ func New(v map[string]*viper.Viper) (*Configuration, error) {
 
 	c.Hosts = make(map[string]Host)
 	c.HostGlobals = make(map[string]map[string]string)
-	c.creds = make(map[string]Cred)
+	c.Creds = make(map[string]Cred)
 	c.tunnels = make(map[string]Tunnel)
 	c.settings = make(map[string]Settings)
 
@@ -101,19 +101,17 @@ func (c *Configuration) HostExists(key string) bool {
 
 // HostCredentials returns the username and password for this host.
 //
-// Either a username or a password may be provided through various means. Each is checked and there is an order of
-// preference to determine which is used.
+// Either a username or a password may be provided through various means. The following sources are all tried, in
+// order from least to most preferred. The most preferred non-empty string is accepted for each field.
 //
-// Sources from least to most preferred:
+// - Values from calling creds.Cred.Retrieve() on the cred referred to by the global 'cred' field.
 //
-// - Config file 'cred' field credentials
+// - Values from calling creds.Cred.Retrieve() on the host if it implements creds.Cred.
 //
-// - Host credentials, where the Host also implements Cred
-//
-// - Config file global 'username' field (username only)
+// - Literal username defined in the global 'username' field. (username only)
 func (c *Configuration) HostCredentials(key string) (string, string, error) {
-	username := make([]string, 3)
-	password := make([]string, 3)
+	u := make([]string, 3)
+	p := make([]string, 3)
 
 	credKey, ok := c.HostGlobals[key][hosts.GlobalCred.String()]
 
@@ -121,12 +119,12 @@ func (c *Configuration) HostCredentials(key string) (string, string, error) {
 
 	// Check for normal cred config entries
 	if ok {
-		cred, ok := c.creds[credKey]
+		cred, ok := c.Creds[credKey]
 		if !ok {
 			return "", "", fmt.Errorf("cred config '%s' not found", credKey)
 		}
 
-		username[0], password[0], err = cred.Retrieve()
+		u[0], p[0], err = cred.Retrieve()
 		if err != nil {
 			return "", "", fmt.Errorf("retrieving credentials for %s: %w", credKey, err)
 		}
@@ -136,27 +134,68 @@ func (c *Configuration) HostCredentials(key string) (string, string, error) {
 	h := c.Hosts[key]
 	hostCred, ok := h.(Cred)
 	if ok {
-		username[1], password[1], err = hostCred.Retrieve()
+		u[1], p[1], err = hostCred.Retrieve()
 	}
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving host credentials for %s: %w", key, err)
 	}
 
 	// Check if a literal username is defined using the global username variable (not permitted for passwords)
-	username[2] = c.HostGlobals[key][hosts.GlobalUsername.String()]
+	u[2] = c.HostGlobals[key][hosts.GlobalUsername.String()]
 
 	// Apply the order of preference
-	user, pass := "", ""
+	user, pass := lastNotEmptyStrings(u, p)
 
-	for i := 0; i < 3; i++ {
-		if username[i] != "" {
-			user = username[i]
-		}
+	return user, pass, nil
+}
 
-		if password[i] != "" {
-			pass = password[i]
+// HostSocket returns the IP/hostname and port for this host. The following sources are all tried, in
+// order from least to most preferred. The most preferred non-empty string is accepted for each field.
+// If noProxy is true, the config file 'proxy' global field is ignored.
+//
+// - Values from calling hosts.Host.Socket(), the specific behaviour of the host type.
+//
+// - Literal values defined in the global 'address' and 'port' fields.
+//
+// - Address field of the host referred to by the global 'proxy' field which points to a different host. (address only)
+func (c *Configuration) HostSocket(key string, noProxy bool) (string, string, error) {
+	a, p := make([]string, 3), make([]string, 3)
+
+	var err error
+
+	a[0], p[0], err = c.Hosts[key].Socket()
+
+	a[1], p[1] = c.HostGlobals[key][hosts.GlobalAddress.String()], c.HostGlobals[key][hosts.GlobalPort.String()]
+
+	proxy := c.HostGlobals[key][hosts.GlobalProxy.String()]
+	if proxy != "" && !noProxy {
+		if c.HostExists(proxy) {
+			a[2], _, err = c.HostSocket(proxy, true)
+			if err != nil {
+				return "", "", fmt.Errorf("retrieving socket for proxy host '%s': %s", proxy, err)
+			}
+
+		} else {
+			return "", "", fmt.Errorf("proxy host '%s' does not exist", proxy)
 		}
 	}
 
-	return user, pass, nil
+	add, pass := lastNotEmptyStrings(a, p)
+	return add, pass, nil
+}
+
+func lastNotEmptyStrings(a, b []string) (string, string) {
+	aVal, bVal := "", ""
+
+	for i := 0; i < 3; i++ {
+		if a[i] != "" {
+			aVal = a[i]
+		}
+
+		if b[i] != "" {
+			bVal = b[i]
+		}
+	}
+
+	return aVal, bVal
 }

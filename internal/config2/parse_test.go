@@ -26,13 +26,13 @@ func TestParseConfiguration(t *testing.T) {
 		t.Errorf("failed to get or convert type *hosts.EC2")
 	}
 
-	if awssmtest, ok := c.creds["awssmtest"].(*creds.SecretsManager); ok {
+	if awssmtest, ok := c.Creds["awssmtest"].(*creds.SecretsManager); ok {
 		checkFields(t, awssmtest)
 	} else {
 		t.Errorf("failed to get or convert type *creds.SecretsManager")
 	}
 
-	if thycotictest, ok := c.creds["thycotictest"].(*creds.Thycotic); ok {
+	if thycotictest, ok := c.Creds["thycotictest"].(*creds.Thycotic); ok {
 		checkFields(t, thycotictest)
 	} else {
 		t.Errorf("unable to convert awsec2test to type *creds.Thycotic")

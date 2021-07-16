@@ -77,7 +77,7 @@ func TestNew(t *testing.T) {
 
 	for k := range creds.Map {
 		name := fmt.Sprintf("%stest", k)
-		if _, ok := c.creds[name]; !ok {
+		if _, ok := c.Creds[name]; !ok {
 			t.Errorf("cred with key '%s' was not loaded into the configuration", name)
 		}
 	}
@@ -191,7 +191,7 @@ func TestConfiguration_HostCredentials(t *testing.T) {
 		"cred":     "testcred",
 		"username": "globaluser",
 	}
-	c.AddCred("testcred", cred)
+	c.Creds["testcred"] = cred
 
 	user, pass, err := c.HostCredentials("testhost")
 	if err != nil {
@@ -236,6 +236,70 @@ func TestConfiguration_HostCredentials(t *testing.T) {
 	}
 }
 
-func (c *Configuration) AddCred(name string, cred Cred) {
-	c.creds[name] = cred
+func TestConfiguration_HostSocket(t *testing.T) {
+	c, err := New(map[string]*viper.Viper{})
+	if err != nil {
+		t.Errorf("unexpected error creating config: %s", err)
+	}
+
+	c.Hosts["proxyhost"] = &mock.Host{
+		Address: "proxy.address",
+		Port:    "0000_proxyport",
+	}
+	c.Hosts["testhost"] = &mock.Host{
+		Address: "host.address",
+		Port:    "0000_hostport",
+	}
+	c.HostGlobals["testhost"] = map[string]string{
+		"address": "global.address",
+		"port":    "0000_globalport",
+		"proxy":   "proxyhost",
+	}
+
+	address, port, err := c.HostSocket("testhost", false)
+	if err != nil {
+		t.Errorf("unexpected error returned getting host socket: %s", err)
+	}
+
+	if address != "proxy.address" {
+		t.Errorf("unexpected address '%s': expected 'proxy.address'",
+			address)
+	}
+
+	if port != "0000_globalport" {
+		t.Errorf("unexpected port '%s': expected '0000_globalport'", port)
+	}
+
+	// Remove proxy field so global address takes priority
+	c.HostGlobals["testhost"] = map[string]string{
+		"address": "global.address",
+		"port":    "0000_globalport",
+	}
+
+	address, port, err = c.HostSocket("testhost", false)
+	if err != nil {
+		t.Errorf("unexpected error returned getting host socket: %s", err)
+	}
+
+	if address != "global.address" {
+		t.Errorf("unexpected address '%s': expected 'global.address'",
+			address)
+	}
+
+	// Remove global fields, only host fields remain
+	c.HostGlobals["testhost"] = map[string]string{}
+
+	address, port, err = c.HostSocket("testhost", false)
+	if err != nil {
+		t.Errorf("unexpected error returned getting host socket: %s", err)
+	}
+
+	if address != "host.address" {
+		t.Errorf("unexpected address '%s': expected 'host.address'",
+			address)
+	}
+
+	if port != "0000_hostport" {
+		t.Errorf("unexpected port '%s': expected '0000_hostport'", port)
+	}
 }

@@ -16,7 +16,7 @@ func parseConfiguration(v map[string]*viper.Viper, c *Configuration) error {
 		return fmt.Errorf("parsing hosts: %w", err)
 	}
 
-	if err := parseCreds(v, c.creds); err != nil {
+	if err := parseCreds(v, c.Creds); err != nil {
 		return fmt.Errorf("parsing creds: %w", err)
 	}
 
