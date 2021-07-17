@@ -178,7 +178,7 @@ func InstanceFromTagFilter(svc ec2iface.EC2API, tags Tags) (*ec2.Instance, error
 		fmt.Println("Multiple EC2 instances found with given tags:")
 
 		for i := range eligible {
-			fmt.Printf("%d. %s\n", i+1, instanceName(&eligible[i]))
+			fmt.Printf("%d. %s - %s\n", i+1, instanceName(&eligible[i]), *eligible[i].State.Name)
 		}
 
 		fmt.Print("\nEnter number to connect: ")
