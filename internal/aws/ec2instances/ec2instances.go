@@ -200,7 +200,8 @@ func InstanceFromTagFilter(svc ec2iface.EC2API, tags Tags) (*ec2.Instance, error
 
 		return &eligible[selected-1], nil
 	case len(eligible) == 0:
-		return nil, fmt.Errorf("no instances found with matching tags")
+		return nil, fmt.Errorf("no instances found with matching tags:\nincludetags: %s\nexcludetags: %s",
+			tags.IncludeTags, tags.ExcludeTags)
 	default:
 		return &eligible[0], nil
 	}

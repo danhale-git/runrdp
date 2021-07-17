@@ -86,7 +86,7 @@ func (h *EC2Host) Instance() (*ec2.Instance, error) {
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("looking for instance in region '%s': %w", h.Region, err)
 	}
 
 	if h.ID == "" {

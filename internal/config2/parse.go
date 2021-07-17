@@ -262,7 +262,7 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 				val, ok := item.(string)
 				if !ok {
 					return &FieldLoadError{ConfigName: n, FieldName: k,
-						Message: fmt.Sprintf(`array item %d: expected value of type string (["Key1:Val1", "Key2:Val2", "KeyOnly"])`, i)}
+						Message: fmt.Sprintf(`array item %d: expected value of type string (["a", "b", "c"])`, i)}
 				}
 
 				value.Index(i).Set(reflect.ValueOf(val))
