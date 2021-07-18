@@ -18,8 +18,8 @@ type Configuration struct {
 	HostGlobals map[string]map[string]string // Global Host fields by [host key][field name]. All keys exist for all hosts, undefined values are empty strings
 
 	Creds    map[string]Cred     `mapstructure:"cred"`
-	tunnels  map[string]Tunnel   `mapstructure:"tunnel"`
-	settings map[string]Settings `mapstructure:"setting"`
+	Tunnels  map[string]Tunnel   `mapstructure:"tunnel"`
+	Settings map[string]Settings `mapstructure:"setting"`
 }
 
 // Host can return a hostname or IP address and/or a port.
@@ -56,8 +56,8 @@ func New(v map[string]*viper.Viper) (*Configuration, error) {
 	c.Hosts = make(map[string]Host)
 	c.HostGlobals = make(map[string]map[string]string)
 	c.Creds = make(map[string]Cred)
-	c.tunnels = make(map[string]Tunnel)
-	c.settings = make(map[string]Settings)
+	c.Tunnels = make(map[string]Tunnel)
+	c.Settings = make(map[string]Settings)
 
 	if err := parseConfiguration(v, &c); err != nil {
 		return nil, err
@@ -113,12 +113,12 @@ func (c *Configuration) HostCredentials(key string) (string, string, error) {
 	u := make([]string, 3)
 	p := make([]string, 3)
 
-	credKey, ok := c.HostGlobals[key][hosts.GlobalCred.String()]
+	credKey := c.HostGlobals[key][hosts.GlobalCred.String()]
 
 	var err error
 
 	// Check for normal cred config entries
-	if ok {
+	if credKey != "" {
 		cred, ok := c.Creds[credKey]
 		if !ok {
 			return "", "", fmt.Errorf("cred config '%s' not found", credKey)

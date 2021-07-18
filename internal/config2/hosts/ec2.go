@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const EC2TagSeparator = ";"
+
 // EC2Struct returns a struct of type hosts.EC2.
 func EC2Struct() interface{} {
 	return &EC2{}
@@ -60,7 +62,7 @@ func (h *EC2) Instance() (*ec2.Instance, error) {
 	instance, err := ec2instances.GetInstance(
 		h.svc,
 		h.ID,
-		viper.GetString("tag-separator"),
+		EC2TagSeparator,
 		h.IncludeTags,
 		h.ExcludeTags,
 	)

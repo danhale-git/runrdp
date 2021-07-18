@@ -38,10 +38,10 @@ func TestParseConfiguration(t *testing.T) {
 		t.Errorf("unable to convert awsec2test to type *creds.Thycotic")
 	}
 
-	settingstest := c.settings["settingstest"]
+	settingstest := c.Settings["settingstest"]
 	checkFields(t, &settingstest)
 
-	tunneltest := c.tunnels["tunneltest"]
+	tunneltest := c.Tunnels["tunneltest"]
 	checkFields(t, &tunneltest)
 
 	// Basic doesn't have any fields so we use it to test global fields
