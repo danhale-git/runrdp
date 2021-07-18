@@ -25,7 +25,7 @@ resource "aws_instance" "rdp_target" {
     Name = "rdp-target"
   }
 
-  vpc_security_group_ids = [aws_security_group.allow_rdp.id]
+  vpc_security_group_ids = [aws_security_group.rdp_ssh.id]
   key_name               = "VPC"
 
   get_password_data = true
@@ -33,13 +33,13 @@ resource "aws_instance" "rdp_target" {
 
 resource "aws_instance" "rdp_proxy" {
   ami           = "ami-03ac5a9b225e99b02"
-  instance_type = "t2.micro"
+  instance_type = "t2.nano"
 
   tags = {
     Name = "rdp-proxy"
   }
 
-  vpc_security_group_ids = [aws_security_group.allow_rdp.id]
+  vpc_security_group_ids = [aws_security_group.rdp_ssh.id]
   key_name               = "VPC"
 
   // https://www.bogotobogo.com/DevOps/Terraform/Terraform-terraform-userdata.php
@@ -53,9 +53,9 @@ while true; do socat tcp4-listen:3389,reuseaddr tcp:${aws_instance.rdp_target.pr
 }
 
 
-resource "aws_security_group" "allow_rdp" {
-  name        = "allow_rdp"
-  description = "Allow RDP inbound traffic"
+resource "aws_security_group" "rdp_ssh" {
+  name        = "rdp_ssh"
+  description = "Allow RDP and SSH traffic"
 
   ingress {
     description = "RDP"
@@ -82,12 +82,8 @@ resource "aws_security_group" "allow_rdp" {
   }
 
   tags = {
-    Name = "allow_rdp"
+    Name = "rdp_ssh"
   }
-}
-
-output "rdp_target_password" {
-  value = aws_instance.rdp_target.password_data
 }
 
 resource "local_file" "config" {
@@ -99,4 +95,20 @@ resource "local_file" "config" {
     }
   )
   filename = "C:/Users/danha/.runrdp/terraformconfig.toml"
+}
+
+output "rdp_target_public_ip" {
+  value = aws_instance.rdp_target.public_ip
+}
+
+output "rdp_target_private_dns" {
+  value = aws_instance.rdp_target.private_dns
+}
+
+output "rdp_proxy_public_ip" {
+  value = aws_instance.rdp_proxy.public_ip
+}
+
+output "rdp_proxy_private_dns" {
+  value = aws_instance.rdp_proxy.private_dns
 }
