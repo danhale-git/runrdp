@@ -20,11 +20,11 @@ func parseConfiguration(v map[string]*viper.Viper, c *Configuration) error {
 		return fmt.Errorf("parsing creds: %w", err)
 	}
 
-	if err := parseSettings(v, c.settings); err != nil {
+	if err := parseSettings(v, c.Settings); err != nil {
 		return fmt.Errorf("parsing settings: %w", err)
 	}
 
-	if err := parseTunnels(v, c.tunnels); err != nil {
+	if err := parseTunnels(v, c.Tunnels); err != nil {
 		return fmt.Errorf("parsing tunnels: %w", err)
 	}
 

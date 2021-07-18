@@ -82,11 +82,11 @@ func TestNew(t *testing.T) {
 		}
 	}
 
-	if _, ok := c.settings["settingstest"]; !ok {
+	if _, ok := c.Settings["settingstest"]; !ok {
 		t.Errorf("settings with key 'settingstest' was not loaded into the configuration")
 	}
 
-	if _, ok := c.tunnels["tunneltest"]; !ok {
+	if _, ok := c.Tunnels["tunneltest"]; !ok {
 		t.Errorf("cred with key 'tunneltest' was not loaded into the configuration")
 	}
 }

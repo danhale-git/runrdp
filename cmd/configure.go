@@ -1,6 +1,6 @@
 package cmd
 
-import (
+/*import (
 	"bufio"
 	"fmt"
 	"os"
@@ -78,19 +78,7 @@ var configureCmd = &cobra.Command{
 		switch args[0] {
 		case "add":
 
-			// configure something
-			/*configuration, name, ok := configure.AddCredentialsInteractive()
-			if !ok {
-				return
-			}
 
-			// choose config file
-			config.Set(name, configuration)
-
-			err := config.WriteConfigAs(path)
-			if err != nil {
-				fmt.Println(err)
-			}*/
 
 		case "show":
 			//name := viper.GetString("name")
@@ -165,4 +153,4 @@ func interactiveYesNo() bool {
 	text, _ := reader.ReadString('\n')
 
 	return strings.TrimSpace(strings.ToLower(text)) == "y"
-}
+}*/
