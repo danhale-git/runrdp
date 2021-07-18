@@ -1,13 +1,13 @@
-package config2
+package config
 
 import (
 	"errors"
 	"reflect"
 	"testing"
 
-	"github.com/danhale-git/runrdp/internal/config2/creds"
+	"github.com/danhale-git/runrdp/internal/config/creds"
 
-	"github.com/danhale-git/runrdp/internal/config2/hosts"
+	"github.com/danhale-git/runrdp/internal/config/hosts"
 
 	"github.com/danhale-git/runrdp/internal/mock"
 )
