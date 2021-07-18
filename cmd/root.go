@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/danhale-git/runrdp/internal/config2/hosts"
+	"github.com/danhale-git/runrdp/internal/config/hosts"
 
-	"github.com/danhale-git/runrdp/internal/config2"
+	"github.com/danhale-git/runrdp/internal/config"
 
 	"github.com/rgzr/sshtun"
 
@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var configuration *config2.Configuration
+var configuration *config.Configuration
 
 // Execute begins execution of the CLI program
 func Execute() {
@@ -62,7 +62,7 @@ func Execute() {
 	}
 
 	// Read configs into viper instances
-	vipers, err := config2.ReadConfigs(configs)
+	vipers, err := config.ReadConfigs(configs)
 	if err != nil {
 		log.Fatalf("reading configs: %s", err)
 	}
@@ -75,7 +75,7 @@ func Execute() {
 	}
 
 	// Parse viper data into configuration
-	configuration, err = config2.New(vipers)
+	configuration, err = config.New(vipers)
 	if err != nil {
 		log.Fatalf("parsing configs: %s", err)
 	}
@@ -224,7 +224,7 @@ func connectToHost(host string) {
 
 	settings, ok := configuration.Settings[configuration.HostGlobals[host][hosts.GlobalSettings.String()]]
 	if !ok {
-		settings = config2.Settings{}
+		settings = config.Settings{}
 	}
 
 	// Connect to the remote desktop.
@@ -250,7 +250,7 @@ func connectToHost(host string) {
 // sshTunnel open an SSH tunnel (port forwarding) equivalent to the command below:
 //
 // ssh -i <key file> -N -L <local port>:<host address>:<remote port> <username>@<forwarding server>
-func sshTunnel(tunnel *config2.Tunnel, address, port string) (*sshtun.SSHTun, error) {
+func sshTunnel(tunnel *config.Tunnel, address, port string) (*sshtun.SSHTun, error) {
 	debug := viper.GetBool("debug")
 
 	lp, err := strconv.Atoi(tunnel.LocalPort)

@@ -1,13 +1,13 @@
-package config2
+package config
 
 import (
 	"fmt"
 	"reflect"
 	"strings"
 
-	"github.com/danhale-git/runrdp/internal/config2/creds"
+	"github.com/danhale-git/runrdp/internal/config/creds"
 
-	"github.com/danhale-git/runrdp/internal/config2/hosts"
+	"github.com/danhale-git/runrdp/internal/config/hosts"
 	"github.com/spf13/viper"
 )
 

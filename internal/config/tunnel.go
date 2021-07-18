@@ -1,4 +1,4 @@
-package config2
+package config
 
 // Tunnel has the details for opening an 'SSH tunnel' (SSH port forwarding) including a reference to a Host config which
 // will be the forwarding server.

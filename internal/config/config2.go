@@ -1,4 +1,4 @@
-package config2
+package config
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/sahilm/fuzzy"
 
-	"github.com/danhale-git/runrdp/internal/config2/hosts"
+	"github.com/danhale-git/runrdp/internal/config/hosts"
 
 	"github.com/spf13/viper"
 )
