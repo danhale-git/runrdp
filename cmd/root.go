@@ -38,43 +38,11 @@ func Execute() {
 
 	root.AddCommand(findCommand())
 
-	configDir := viper.GetString("config-root")
-	// Open all config files
-	files, err := ioutil.ReadDir(configDir)
+	vipers, err := readAllConfigs(viper.GetString("config-root"), ".toml")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	toml := make([]*os.File, 0)
-	for _, f := range files {
-		if filepath.Ext(f.Name()) == ".toml" {
-			f, err := os.Open(filepath.Join(configDir, f.Name()))
-			if err != nil {
-				log.Fatal(err)
-			}
-			toml = append(toml, f)
-		}
-	}
-
-	configs := make(map[string]io.Reader)
-	for _, f := range toml {
-		configs[f.Name()] = f
-	}
-
-	// Read configs into viper instances
-	vipers, err := config.ReadConfigs(configs)
-	if err != nil {
-		log.Fatalf("reading configs: %s", err)
-	}
-
-	// Close files
-	for _, f := range toml {
-		if err := f.Close(); err != nil {
-			fmt.Println("error closing file:", err)
-		}
-	}
-
-	// Parse viper data into configuration
 	configuration, err = config.New(vipers)
 	if err != nil {
 		log.Fatalf("parsing configs: %s", err)
@@ -83,6 +51,42 @@ func Execute() {
 	if err = root.Execute(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func readAllConfigs(directory, extension string) (map[string]*viper.Viper, error) {
+	infos, err := ioutil.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]*os.File, 0)
+	for _, f := range infos {
+		if filepath.Ext(f.Name()) == extension {
+			f, err := os.Open(filepath.Join(directory, f.Name()))
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, f)
+		}
+	}
+
+	configs := make(map[string]io.Reader)
+	for _, f := range files {
+		configs[f.Name()] = f
+	}
+
+	vipers, err := config.ReadConfigs(configs)
+	if err != nil {
+		log.Fatalf("reading configs: %s", err)
+	}
+
+	for _, f := range files {
+		if err := f.Close(); err != nil {
+			fmt.Println("error closing file:", err)
+		}
+	}
+
+	return vipers, nil
 }
 
 func rootCommand() *cobra.Command {
@@ -106,53 +110,40 @@ func rootCommand() *cobra.Command {
 
 	configRoot := filepath.Join(home, "/.runrdp/")
 
-	command.PersistentFlags().Bool(
-		"debug", false,
+	command.PersistentFlags().Bool("debug", false,
 		"Print debug information",
 	)
 
-	command.PersistentFlags().String(
-		"address", "",
+	command.PersistentFlags().String("address", "",
 		"Hostname or IP address to connect to",
 	)
-	command.PersistentFlags().String(
-		"port", "",
+	command.PersistentFlags().String("port", "",
 		"Port to connect over",
 	)
 
-	command.PersistentFlags().StringP(
-		"username", "u", "",
+	command.PersistentFlags().StringP("username", "u", "",
 		"Username to authenticate with",
 	)
-	command.PersistentFlags().StringP(
-		"password", "p", "",
+	command.PersistentFlags().StringP("password", "p", "",
 		"Password to authenticate with",
 	)
-	command.PersistentFlags().String(
-		"tempfile-path", filepath.Join(configRoot, "connection.rdp"),
+	command.PersistentFlags().String("tempfile-path", filepath.Join(configRoot, "connection.rdp"),
 		"The directory in which a temporary .rdp file will be saved and run. Default is ~/.runrdp/",
 	)
 
-	command.PersistentFlags().String(
-		"config-root", configRoot,
+	command.PersistentFlags().String("config-root", configRoot,
 		"directory containing config files",
 	)
 
-	command.PersistentFlags().String(
-		"ssh-directory",
-		path.Join(home, ".ssh"),
+	command.PersistentFlags().String("ssh-directory", path.Join(home, ".ssh"),
 		"Directory containing SSH keys.",
 	)
 
-	command.PersistentFlags().String(
-		"thycotic-url",
-		path.Join(home, ""),
+	command.PersistentFlags().String("thycotic-url", path.Join(home, ""),
 		"URL for Thycotic Secret Server.",
 	)
 
-	command.PersistentFlags().String(
-		"thycotic-domain",
-		path.Join(home, ""),
+	command.PersistentFlags().String("thycotic-domain", path.Join(home, ""),
 		"Active Directory domain for Thycotic Secret Server.",
 	)
 
@@ -310,36 +301,3 @@ func sshTunnel(tunnel *config.Tunnel, address, port string) (*sshtun.SSHTun, err
 
 	return sshTun, nil
 }
-
-/*// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	// Read the file 'config' into the default viper if it exists
-	loadMainConfig()
-
-	// Read all config files into separate viper instances
-	// This includes 'config' which is read a second time here so it may include host and cred configurations
-	configuration.ReadConfigFiles()
-	configuration.BuildData()
-}
-
-func loadMainConfig() {
-	root := viper.GetString("config-root")
-	filePath := viper.GetString(config.DefaultConfigName)
-
-	if filePath != "" {
-		viper.SetConfigFile(filePath)
-	} else {
-		viper.AddConfigPath(root)
-		viper.SetConfigName(config.DefaultConfigName)
-	}
-
-	viper.SetConfigType("toml")
-	viper.SetConfigFile(filepath.Join(
-		viper.GetString("config-root"),
-		config.DefaultConfigName,
-	))
-
-	// No default config is required so do nothing if it isn't found
-	_ = viper.ReadInConfig()
-}
-*/
