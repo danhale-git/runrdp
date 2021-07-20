@@ -178,7 +178,7 @@ func InstanceFromTagFilter(svc ec2iface.EC2API, tags Tags) (*ec2.Instance, error
 		fmt.Println("Multiple EC2 instances found with given tags:")
 
 		for i := range eligible {
-			fmt.Printf("%d. %s\n", i+1, instanceName(&eligible[i]))
+			fmt.Printf("%d. %s - %s\n", i+1, instanceName(&eligible[i]), *eligible[i].State.Name)
 		}
 
 		fmt.Print("\nEnter number to connect: ")
@@ -200,7 +200,7 @@ func InstanceFromTagFilter(svc ec2iface.EC2API, tags Tags) (*ec2.Instance, error
 
 		return &eligible[selected-1], nil
 	case len(eligible) == 0:
-		return nil, fmt.Errorf("no instances found with matching tags")
+		return nil, fmt.Errorf("no instances found with matching tags\nfilters: %s", filters)
 	default:
 		return &eligible[0], nil
 	}

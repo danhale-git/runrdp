@@ -2,17 +2,20 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/rgzr/sshtun"
+	"github.com/danhale-git/runrdp/internal/config/hosts"
 
 	"github.com/danhale-git/runrdp/internal/config"
+
+	"github.com/rgzr/sshtun"
 
 	"github.com/danhale-git/runrdp/internal/rdp"
 
@@ -22,17 +25,129 @@ import (
 	"github.com/spf13/viper"
 )
 
-var configuration config.Configuration
+var configuration *config.Configuration
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "rdp",
-	Short: "TBD",
-	Long:  `TBD`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		return cobra.RangeArgs(1, 1)(cmd, args)
-	},
-	Run: Run,
+// Execute begins execution of the CLI program
+func Execute() {
+	root := rootCommand()
+
+	err := viper.BindPFlags(root.PersistentFlags())
+	if err != nil {
+		panic(err)
+	}
+
+	root.AddCommand(findCommand())
+
+	vipers, err := readAllConfigs(viper.GetString("config-root"), ".toml")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	configuration, err = config.New(vipers)
+	if err != nil {
+		log.Fatalf("parsing configs: %s", err)
+	}
+
+	if err = root.Execute(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func readAllConfigs(directory, extension string) (map[string]*viper.Viper, error) {
+	infos, err := ioutil.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]*os.File, 0)
+	for _, f := range infos {
+		if filepath.Ext(f.Name()) == extension {
+			f, err := os.Open(filepath.Join(directory, f.Name()))
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, f)
+		}
+	}
+
+	configs := make(map[string]io.Reader)
+	for _, f := range files {
+		configs[f.Name()] = f
+	}
+
+	vipers, err := config.ReadConfigs(configs)
+	if err != nil {
+		log.Fatalf("reading configs: %s", err)
+	}
+
+	for _, f := range files {
+		if err := f.Close(); err != nil {
+			fmt.Println("error closing file:", err)
+		}
+	}
+
+	return vipers, nil
+}
+
+func rootCommand() *cobra.Command {
+	// rootCmd represents the base command when called without any subcommands
+	command := &cobra.Command{
+		Use:   "runrdp",
+		Short: "TBD",
+		Long:  `TBD`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			return cobra.RangeArgs(1, 1)(cmd, args)
+		},
+		Run: Run,
+	}
+
+	// Find home directory.
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	configRoot := filepath.Join(home, "/.runrdp/")
+
+	command.PersistentFlags().Bool("debug", false,
+		"Print debug information",
+	)
+
+	command.PersistentFlags().String("address", "",
+		"Hostname or IP address to connect to",
+	)
+	command.PersistentFlags().String("port", "",
+		"Port to connect over",
+	)
+
+	command.PersistentFlags().StringP("username", "u", "",
+		"Username to authenticate with",
+	)
+	command.PersistentFlags().StringP("password", "p", "",
+		"Password to authenticate with",
+	)
+	command.PersistentFlags().String("tempfile-path", filepath.Join(configRoot, "connection.rdp"),
+		"The directory in which a temporary .rdp file will be saved and run. Default is ~/.runrdp/",
+	)
+
+	command.PersistentFlags().String("config-root", configRoot,
+		"directory containing config files",
+	)
+
+	command.PersistentFlags().String("ssh-directory", path.Join(home, ".ssh"),
+		"Directory containing SSH keys.",
+	)
+
+	command.PersistentFlags().String("thycotic-url", path.Join(home, ""),
+		"URL for Thycotic Secret Server.",
+	)
+
+	command.PersistentFlags().String("thycotic-domain", path.Join(home, ""),
+		"Active Directory domain for Thycotic Secret Server.",
+	)
+
+	return command
 }
 
 // Run attempts to locate the given argument in the hosts config. If it is not a config entry the argument is validated
@@ -44,13 +159,9 @@ func Run(_ *cobra.Command, args []string) {
 	if configuration.HostExists(arg) {
 		connectToHost(arg)
 		return
+	} else {
+		fmt.Printf("host %s does not exist in config\n", arg)
 	}
-
-	if SocketArgument(arg) {
-		return
-	}
-
-	fmt.Println(arg, "is not a hostname, ip address or config key.")
 }
 
 func connectToHost(host string) {
@@ -88,16 +199,11 @@ func connectToHost(host string) {
 
 	socket := fmt.Sprintf("%s:%s", address, port)
 
-	t, err := configuration.HostTunnel(host)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var tunnel *sshtun.SSHTun
-
 	// Open an ssh tunnel and replace socket with the localhost:localport tunnel socket.
-	if t != nil {
-		tunnel, err = sshTunnel(t, address, port)
+	var tunnel *sshtun.SSHTun
+	t, ok := configuration.Tunnels[configuration.HostGlobals[host][hosts.GlobalTunnel.String()]]
+	if ok {
+		tunnel, err = sshTunnel(&t, address, port)
 		if err != nil {
 			log.Fatalf("opening ssh tunnel: %s", err)
 		}
@@ -107,13 +213,9 @@ func connectToHost(host string) {
 		defer tunnel.Stop()
 	}
 
-	settings, err := configuration.HostSettings(host)
-	if err != nil {
-		log.Fatalf("retrieving settings: %s", err)
-	}
-
-	if settings == nil {
-		settings = &config.Settings{}
+	settings, ok := configuration.Settings[configuration.HostGlobals[host][hosts.GlobalSettings.String()]]
+	if !ok {
+		settings = config.Settings{}
 	}
 
 	// Connect to the remote desktop.
@@ -139,7 +241,7 @@ func connectToHost(host string) {
 // sshTunnel open an SSH tunnel (port forwarding) equivalent to the command below:
 //
 // ssh -i <key file> -N -L <local port>:<host address>:<remote port> <username>@<forwarding server>
-func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, error) {
+func sshTunnel(tunnel *config.Tunnel, address, port string) (*sshtun.SSHTun, error) {
 	debug := viper.GetBool("debug")
 
 	lp, err := strconv.Atoi(tunnel.LocalPort)
@@ -198,186 +300,4 @@ func sshTunnel(tunnel *config.SSHTunnel, address, port string) (*sshtun.SSHTun, 
 	}()
 
 	return sshTun, nil
-}
-
-// SocketArgument checks if arg is 'host' or 'host:port' and attempts to connect if it is. It returns a bool indicating
-// whether it attempted to connect
-func SocketArgument(arg string) bool {
-	var address, port string
-
-	if strings.Contains(arg, ":") {
-		split := strings.Split(arg, ":")
-		address = split[0]
-
-		if len(split) > 1 {
-			port = split[1]
-		}
-	} else {
-		address = arg
-	}
-
-	if ValidateAddress(address) {
-		var socket string
-		if port != "" {
-			socket = fmt.Sprintf("%s:%s", address, port)
-		} else {
-			socket = address
-		}
-
-		rdp.Connect(
-			socket,
-			viper.GetString("username"),
-			viper.GetString("password"),
-			viper.GetString("tempfile-path"),
-			0, 0, 0,
-		)
-
-		return true
-	}
-
-	return false
-}
-
-// ValidateAddress returns true if the given string parses to an IP address or resolves an IP address in the DNS.
-func ValidateAddress(address string) bool {
-	ip := net.ParseIP(address)
-	if ip != nil {
-		return true
-	} else if h, _ := net.LookupHost(address); len(h) > 0 {
-		return true
-	}
-
-	return false
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	// Find home directory.
-	home, err := homedir.Dir()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	configRoot := filepath.Join(home, "/.runrdp/")
-
-	rootCmd.PersistentFlags().Bool(
-		"debug", false,
-		"Print debug information",
-	)
-
-	rootCmd.PersistentFlags().String(
-		"address", "",
-		"Hostname or IP address to connect to",
-	)
-	rootCmd.PersistentFlags().String(
-		"port", "",
-		"Port to connect over",
-	)
-
-	rootCmd.PersistentFlags().StringP(
-		"username", "u", "",
-		"Username to authenticate with",
-	)
-	rootCmd.PersistentFlags().StringP(
-		"password", "p", "",
-		"Password to authenticate with",
-	)
-	rootCmd.PersistentFlags().String(
-		"tempfile-path", filepath.Join(configRoot, "connection.rdp"),
-		"The directory in which a temporary .rdp file will be saved and run. Default is ~/.runrdp/",
-	)
-
-	rootCmd.PersistentFlags().String(
-		"config-root", configRoot,
-		"directory containing config files",
-	)
-
-	rootCmd.PersistentFlags().String(
-		"tag-separator", ";",
-		"separator character for tags",
-	)
-
-	rootCmd.PersistentFlags().String(
-		"ssh-directory",
-		path.Join(home, ".ssh"),
-		"Directory containing SSH keys.",
-	)
-
-	rootCmd.PersistentFlags().String(
-		"thycotic-url",
-		path.Join(home, ""),
-		"URL for Thycotic Secret Server.",
-	)
-
-	rootCmd.PersistentFlags().String(
-		"thycotic-domain",
-		path.Join(home, ""),
-		"Active Directory domain for Thycotic Secret Server.",
-	)
-
-	err = viper.BindPFlags(rootCmd.PersistentFlags())
-	if err != nil {
-		panic(err)
-	}
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	// Read the file 'config' into the default viper if it exists
-	loadMainConfig()
-
-	err := validateMainConfig()
-
-	if err != nil {
-		log.Fatalf("Default config is invalid: %s", err)
-	}
-
-	// Read all config files into separate viper instances
-	// This includes 'config' which is read a second time here so it may include host and cred configurations
-	configuration.ReadConfigFiles()
-	configuration.BuildData()
-}
-
-func loadMainConfig() {
-	root := viper.GetString("config-root")
-	filePath := viper.GetString(config.DefaultConfigName)
-
-	if filePath != "" {
-		viper.SetConfigFile(filePath)
-	} else {
-		viper.AddConfigPath(root)
-		viper.SetConfigName(config.DefaultConfigName)
-	}
-
-	viper.SetConfigType("toml")
-	viper.SetConfigFile(filepath.Join(
-		viper.GetString("config-root"),
-		config.DefaultConfigName,
-	))
-
-	// No default config is required so do nothing if it isn't found
-	_ = viper.ReadInConfig()
-}
-
-func validateMainConfig() error {
-	for _, key := range viper.AllKeys() {
-		topLevelKey := strings.Split(key, ".")[0]
-		if topLevelKey == "host" || topLevelKey == "cred" {
-			return fmt.Errorf("'%s': default config file ('%s') may not contain host or cred entries: run "+
-				"`runrdp configure`", key, config.DefaultConfigName)
-		}
-	}
-
-	return nil
 }
