@@ -164,6 +164,9 @@ func (c *Configuration) HostSocket(key string, noProxy bool) (string, string, er
 	var err error
 
 	a[0], p[0], err = c.Hosts[key].Socket()
+	if err != nil {
+		return "", "", err
+	}
 
 	a[1], p[1] = c.HostGlobals[key][hosts.GlobalAddress.String()], c.HostGlobals[key][hosts.GlobalPort.String()]
 

@@ -62,7 +62,8 @@ func encrypt(s string) ([]byte, error) {
 	if r == 0 {
 		return nil, err
 	}
-	defer procLocalFree.Call(uintptr(unsafe.Pointer(outBlob.pbData)))
+
+	defer func() { _, _, _ = procLocalFree.Call(uintptr(unsafe.Pointer(outBlob.pbData))) }()
 	return outBlob.toByteArray(), nil
 }
 
