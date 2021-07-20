@@ -1,3 +1,8 @@
+![Go Report Card](https://goreportcard.com/badge/github.com/danhale-git/craft)
+![golangci-lint](https://github.com/danhale-git/craft/actions/workflows/golangci-lint.yml/badge.svg)
+![test](https://github.com/danhale-git/craft/actions/workflows/go-test.yaml/badge.svg)
+![coverage](https://img.shields.io/badge/coverage-36.5%25-orange)
+
 # RunRDP
 
 RunRDP is a tool for configuring Windows Remote Desktop hosts in text files and starting RDP sessions from the command line.

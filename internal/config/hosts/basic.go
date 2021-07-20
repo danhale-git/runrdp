@@ -5,6 +5,7 @@ func BasicStruct() interface{} {
 	return &Basic{}
 }
 
+// Validate returns an error if a config field is invalid.
 func (b Basic) Validate() error {
 	return nil
 }

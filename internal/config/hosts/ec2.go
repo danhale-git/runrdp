@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// EC2TagSeparator is the delimeter use when defining array values on the command line.
 const EC2TagSeparator = ";"
 
 // EC2Struct returns a struct of type hosts.EC2.
@@ -16,6 +17,7 @@ func EC2Struct() interface{} {
 	return &EC2{}
 }
 
+// Validate returns an error if a config field is invalid.
 func (e EC2) Validate() error {
 	return nil
 }
@@ -34,8 +36,8 @@ type EC2 struct {
 }
 
 // Socket returns the public or private IP address of this instance based on the value of the Private field.
-func (h *EC2) Socket() (string, string, error) {
-	instance, err := h.Instance()
+func (e *EC2) Socket() (string, string, error) {
+	instance, err := e.Instance()
 
 	if err != nil {
 		return "", "", fmt.Errorf("getting ec2 instance: %s", err)
@@ -45,7 +47,7 @@ func (h *EC2) Socket() (string, string, error) {
 		return "", "", fmt.Errorf("instance %s: state is not 'running'", *instance.InstanceId)
 	}
 
-	if h.Private {
+	if e.Private {
 		return *instance.PrivateIpAddress, "", nil
 	}
 
@@ -54,25 +56,25 @@ func (h *EC2) Socket() (string, string, error) {
 
 // Instance returns the EC2 instance defined by this host. The Host ID field will be set if it is empty, so future calls
 // will use the ID instead of tag filters to identify the instance.
-func (h *EC2) Instance() (*ec2.Instance, error) {
-	if h.svc == nil {
-		h.svc = ec2instances.NewSession(h.Profile, h.Region)
+func (e *EC2) Instance() (*ec2.Instance, error) {
+	if e.svc == nil {
+		e.svc = ec2instances.NewSession(e.Profile, e.Region)
 	}
 
 	instance, err := ec2instances.GetInstance(
-		h.svc,
-		h.ID,
+		e.svc,
+		e.ID,
 		EC2TagSeparator,
-		h.IncludeTags,
-		h.ExcludeTags,
+		e.IncludeTags,
+		e.ExcludeTags,
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("looking for instance in region '%s': %w", h.Region, err)
+		return nil, fmt.Errorf("looking for instance in region '%s': %w", e.Region, err)
 	}
 
-	if h.ID == "" {
-		h.ID = *instance.InstanceId
+	if e.ID == "" {
+		e.ID = *instance.InstanceId
 	}
 
 	return instance, nil
@@ -81,12 +83,12 @@ func (h *EC2) Instance() (*ec2.Instance, error) {
 // Retrieve returns the administrator credentials for this instance or an error if unable to retrieve them. If the
 // getcred field is not set it returns empty strings and no error. This method allows the EC2 host to also implement
 // the Cred interface and be called for authentication.
-func (h *EC2) Retrieve() (string, string, error) {
-	if !h.GetCred {
+func (e *EC2) Retrieve() (string, string, error) {
+	if !e.GetCred {
 		return "", "", nil
 	}
 
-	instance, err := h.Instance()
+	instance, err := e.Instance()
 
 	if err != nil {
 		return "", "", fmt.Errorf("getting ec2 instance: %s", err)
@@ -103,7 +105,7 @@ func (h *EC2) Retrieve() (string, string, error) {
 
 	// Get instance password
 	password, err := ec2instances.GetPassword(
-		h.svc,
+		e.svc,
 		*instance.InstanceId,
 		keyData,
 	)
