@@ -50,6 +50,9 @@ func parseHosts(v map[string]*viper.Viper, hm map[string]Host, gm map[string]map
 		}
 
 		g, err := parseGlobals(v, fmt.Sprintf("host.%s", key))
+		if err != nil {
+			return fmt.Errorf("parsing global fields: %s", err)
+		}
 		for k, v := range g {
 			gm[k] = v.(map[string]string)
 		}
@@ -303,10 +306,7 @@ func (e *FieldLoadError) Error() string {
 // Is implements Is(error) to support errors.Is
 func (e *FieldLoadError) Is(tgt error) bool {
 	_, ok := tgt.(*FieldLoadError)
-	if !ok {
-		return false
-	}
-	return true
+	return ok
 }
 
 // DuplicateConfigNameError reports a duplicate configuration item name
@@ -321,10 +321,7 @@ func (e *DuplicateConfigNameError) Error() string {
 // Is implements Is(error) to support errors.Is
 func (e *DuplicateConfigNameError) Is(tgt error) bool {
 	_, ok := tgt.(*DuplicateConfigNameError)
-	if !ok {
-		return false
-	}
-	return true
+	return ok
 }
 
 // InvalidConfigError reports a configuration which was parsed successfully but has invalid values
@@ -339,8 +336,5 @@ func (e *InvalidConfigError) Error() string {
 // Is implements Is(error) to support errors.Is
 func (e *InvalidConfigError) Is(tgt error) bool {
 	_, ok := tgt.(*InvalidConfigError)
-	if !ok {
-		return false
-	}
-	return true
+	return ok
 }
