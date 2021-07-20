@@ -69,6 +69,7 @@ func (h *HostCred) Socket() (string, string, error) {
 	return h.Address, h.Port, nil
 }
 
+// Validate returns an error if a config field is invalid.
 func (h HostCred) Validate() error {
 	return nil
 }
@@ -83,6 +84,7 @@ func (h *Host) Socket() (string, string, error) {
 	return h.Address, h.Port, nil
 }
 
+// Validate returns an error if a config field is invalid.
 func (h Host) Validate() error {
 	return nil
 }
@@ -97,6 +99,7 @@ func (h *Cred) Retrieve() (string, string, error) {
 	return h.Username, h.Password, nil
 }
 
+// Validate returns an error if a config field is invalid.
 func (h Cred) Validate() error {
 	return nil
 }
