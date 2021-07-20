@@ -10,6 +10,7 @@ func ThycoticStruct() interface{} {
 	return &Thycotic{}
 }
 
+// Validate returns an error if a config field is invalid.
 func (t Thycotic) Validate() error {
 	return nil
 }

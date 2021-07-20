@@ -9,17 +9,17 @@ import (
 	"unsafe"
 )
 
-const (
+/*const (
 	CRYPTPROTECT_UI_FORBIDDEN = 0x1
-)
+)*/
 
 var (
 	dLLCrypt32  = syscall.NewLazyDLL("Crypt32.dll")
 	dLLKernel32 = syscall.NewLazyDLL("Kernel32.dll")
 
 	procEncryptData = dLLCrypt32.NewProc("CryptProtectData")
-	procDecryptData = dLLCrypt32.NewProc("CryptUnprotectData")
-	procLocalFree   = dLLKernel32.NewProc("LocalFree")
+	//procDecryptData = dLLCrypt32.NewProc("CryptUnprotectData")
+	procLocalFree = dLLKernel32.NewProc("LocalFree")
 )
 
 // CrossPlatformAuthHandler handles the usage of the password. On Windows this is encrypted and included in the .rdp
@@ -34,22 +34,22 @@ func CrossPlatformAuthHandler(fileBody, password string) string {
 	return fileBody + fmt.Sprintf("\npassword 51:b:%s", fmt.Sprintf("%x", enc))
 }
 
-type DataBlob struct {
+type dataBlob struct {
 	cbData uint32
 	pbData *byte
 }
 
-func newBlob(d []byte) *DataBlob {
+func newBlob(d []byte) *dataBlob {
 	if len(d) == 0 {
-		return &DataBlob{}
+		return &dataBlob{}
 	}
-	return &DataBlob{
+	return &dataBlob{
 		pbData: &d[0],
 		cbData: uint32(len(d)),
 	}
 }
 
-func (b *DataBlob) toByteArray() []byte {
+func (b *dataBlob) toByteArray() []byte {
 	d := make([]byte, b.cbData)
 	copy(d, (*[1 << 30]byte)(unsafe.Pointer(b.pbData))[:])
 	return d
@@ -57,7 +57,7 @@ func (b *DataBlob) toByteArray() []byte {
 
 func encrypt(s string) ([]byte, error) {
 	data := convertToUTF16LittleEndianBytes(s)
-	var outBlob DataBlob
+	var outBlob dataBlob
 	r, _, err := procEncryptData.Call(uintptr(unsafe.Pointer(newBlob(data))), 0, 0, 0, 0, 0, uintptr(unsafe.Pointer(&outBlob)))
 	if r == 0 {
 		return nil, err
@@ -76,7 +76,7 @@ func convertToUTF16LittleEndianBytes(s string) []byte {
 }
 
 /*func Decrypt(data []byte) ([]byte, error) {
-	var outblob DataBlob
+	var outblob dataBlob
 	r, _, err := procDecryptData.Call(uintptr(unsafe.Pointer(newBlob(data))), 0, 0, 0, 0, 0, uintptr(unsafe.Pointer(&outblob)))
 	if r == 0 {
 		return nil, err

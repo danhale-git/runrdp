@@ -6,6 +6,7 @@ var Map = map[string]func() interface{}{
 	"awsec2": EC2Struct,
 }
 
+// Global fields may be used with any host type.
 const (
 	GlobalCred GlobalFields = iota
 	GlobalProxy
