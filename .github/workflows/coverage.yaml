@@ -1,5 +1,7 @@
 on:
   push:
+    paths:
+      - '**.go'
     branches:
       - master
 
