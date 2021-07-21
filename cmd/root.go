@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,6 +27,7 @@ import (
 )
 
 var configuration *config.Configuration
+var debug bool
 
 // Execute begins execution of the CLI program
 func Execute() {
@@ -110,8 +112,19 @@ func rootCommand() *cobra.Command {
 
 	configRoot := filepath.Join(home, "/.runrdp/")
 
-	command.PersistentFlags().Bool("debug", false,
-		"Print debug information",
+	// Desktop configuration
+	command.PersistentFlags().BoolP("fullscreen", "f", false,
+		"Starts Remote Desktop Connection in full-screen mode")
+	command.PersistentFlags().BoolP("span", "s", false,
+		"Matches the Remote Desktop width and height with the local virtual desktop, spanning across multiple monitors if necessary")
+	/*command.PersistentFlags().BoolP("public", "p", false,
+	"Runs Remote Desktop in public mode. In public mode, passwords and bitmaps aren't cached")*/
+
+	command.PersistentFlags().Int("width", 0,
+		"Specifies the width of the Remote Desktop window",
+	)
+	command.PersistentFlags().Int("height", 0,
+		"Specifies the height of the Remote Desktop window",
 	)
 
 	command.PersistentFlags().String("address", "",
@@ -127,6 +140,12 @@ func rootCommand() *cobra.Command {
 	command.PersistentFlags().StringP("password", "p", "",
 		"Password to authenticate with",
 	)
+
+	// RunRDP config
+	command.PersistentFlags().Bool("debug", false,
+		"Print debug information",
+	)
+
 	command.PersistentFlags().String("tempfile-path", filepath.Join(configRoot, "connection.rdp"),
 		"The directory in which a temporary .rdp file will be saved and run. Default is ~/.runrdp/",
 	)
@@ -165,49 +184,20 @@ func Run(_ *cobra.Command, args []string) {
 }
 
 func connectToHost(host string) {
-	fmt.Printf("Connecting to: %s\n", host)
+	debug = viper.GetBool("debug")
 
-	// Get the host socket from configuration.
-	address, port, err := configuration.HostSocket(host, false)
-	if err != nil {
-		log.Fatalf("error getting host socket: %s", err)
-	}
+	address, port := getSocket(host)
 
-	var username, password string
-	username, password, err = configuration.HostCredentials(host)
-	if err != nil {
-		fmt.Printf("error getting host credentials: %s\n", err)
-	}
+	username, password := getCredentials(host)
 
-	if viper.GetString("username") != "" {
-		username = viper.GetString("username")
-	}
-
-	if viper.GetString("password") != "" {
-		password = viper.GetString("password")
-	}
-
-	// Check if command line flags were passed and override configuration
-	if viper.GetString("address") != "" {
-		address = viper.GetString("address")
-	}
-
-	if viper.GetString("port") != "" {
-		port = viper.GetString("port")
-	}
-
-	// If no port was given, use the standard RDP port.
 	if port == "" {
 		port = rdp.DefaultPort
 	}
 
-	//socket := fmt.Sprintf("%s:%s", address, port)
-
-	// Open an ssh tunnel and replace socket with the localhost:localport tunnel socket.
 	var tunnel *sshtun.SSHTun
 	t, ok := configuration.Tunnels[configuration.HostGlobals[host][hosts.GlobalTunnel.String()]]
 	if ok {
-		tunnel, err = sshTunnel(&t, address, port)
+		tunnel, err := sshTunnel(&t, address, port)
 		if err != nil {
 			log.Fatalf("opening ssh tunnel: %s", err)
 		}
@@ -215,30 +205,31 @@ func connectToHost(host string) {
 		address = "localhost"
 		port = t.LocalPort
 
-		//socket = fmt.Sprintf("localhost:%s", t.LocalPort)
-
 		defer tunnel.Stop()
 	}
 
-	settings, ok := configuration.Settings[configuration.HostGlobals[host][hosts.GlobalSettings.String()]]
-	if !ok {
-		settings = config.Settings{}
-	}
+	settings := getSettings(host)
 
 	params := rdp.RDP{
-		Username:   username,
-		Password:   password,
-		Address:    address,
-		Port:       port,
-		Width:      settings.Width,
-		Height:     settings.Height,
-		Fullscreen: settings.Fullscreen,
-		Public:     settings.Public,
-		Span:       settings.Span,
+		Username: username, Password: password,
+		Address: address, Port: port,
+		Width: settings.Width, Height: settings.Height,
+		Fullscreen: settings.Fullscreen, Public: settings.Public, Span: settings.Span,
+	}
+
+	fmt.Printf("connecting to %s: %s:%s\n", host, address, port)
+
+	if debug {
+		b, err := json.MarshalIndent(params, "", "  ")
+		if err != nil {
+			log.Printf("error marshaling parameters for --debug: %s", err)
+		} else {
+			fmt.Println(strings.Replace(string(b), password, "REMOVED", 1))
+		}
 	}
 
 	// Connect to the remote desktop.
-	if err := rdp.Connect(&params, viper.GetBool("debug")); err != nil {
+	if err := rdp.Connect(&params, debug); err != nil {
 		if tunnel != nil {
 			tunnel.Stop()
 		}
@@ -252,6 +243,74 @@ func connectToHost(host string) {
 			log.Fatal(err)
 		}
 	}
+}
+
+func getSocket(host string) (string, string) {
+	address, port, err := configuration.HostSocket(host, false)
+	if err != nil {
+		log.Fatalf("error getting host socket: %s", err)
+	}
+
+	if viper.GetString("address") != "" {
+		address = viper.GetString("address")
+	}
+
+	if viper.GetString("port") != "" {
+		port = viper.GetString("port")
+	}
+
+	return address, port
+}
+
+func getCredentials(host string) (string, string) {
+	username, password, err := configuration.HostCredentials(host)
+	if err != nil {
+		fmt.Printf("error getting host credentials: %s\n", err)
+	}
+
+	if viper.GetString("username") != "" {
+		username = viper.GetString("username")
+	}
+
+	if viper.GetString("password") != "" {
+		password = viper.GetString("password")
+	}
+
+	return username, password
+}
+
+func getSettings(host string) config.Settings {
+	settings, ok := configuration.Settings[configuration.HostGlobals[host][hosts.GlobalSettings.String()]]
+
+	if !ok {
+		dfault, ok := configuration.Settings[config.DefaultSettingsName]
+		if !ok {
+			settings = config.Settings{}
+		} else {
+			settings = dfault
+		}
+	}
+
+	if viper.GetInt("height") != 0 {
+		settings.Height = viper.GetInt("height")
+	}
+	if viper.GetInt("width") != 0 {
+		settings.Width = viper.GetInt("width")
+	}
+	if viper.GetBool("fullscreen") != false {
+		settings.Fullscreen = viper.GetBool("fullscreen")
+	}
+	if viper.GetBool("public") != false {
+		settings.Public = viper.GetBool("public")
+	}
+	if viper.GetBool("span") != false {
+		settings.Span = viper.GetBool("span")
+	}
+
+	// Always disable public because there's no need to store configuration with runrdp
+	settings.Public = false
+
+	return settings
 }
 
 // sshTunnel open an SSH tunnel (port forwarding) equivalent to the command below:
