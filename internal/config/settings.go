@@ -2,6 +2,8 @@ package config
 
 import "fmt"
 
+const DefaultSettingsName = "default"
+
 // Settings is the configuration of .RDP file settings.
 // https://docs.microsoft.com/en-us/windows-server/remote/remote-desktop-services/clients/rdp-files
 type Settings struct {
