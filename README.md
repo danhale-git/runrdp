@@ -1,5 +1,5 @@
 ![Go Report Card](https://goreportcard.com/badge/github.com/danhale-git/runrdp)
-![golangci-lint](https://github.com/danhale-git/runrdp/actions/workflows/golangci-lint.yml/badge.svg)
+![golangci-lint](https://github.com/danhale-git/runrdp/actions/workflows/golangci-lint.yaml/badge.svg)
 ![test](https://github.com/danhale-git/craft/actions/workflows/go-test.yaml/badge.svg)
 ![coverage](https://img.shields.io/badge/coverage-72.3%25-yellow)
 
