@@ -169,27 +169,31 @@ func connectToHost(host string) {
 
 	// Get the host socket from configuration.
 	address, port, err := configuration.HostSocket(host, false)
-
 	if err != nil {
 		log.Fatalf("error getting host socket: %s", err)
 	}
 
 	var username, password string
 	username, password, err = configuration.HostCredentials(host)
-
 	if err != nil {
 		fmt.Printf("error getting host credentials: %s\n", err)
 	}
 
-	// Check if command line flags were passed and override configuration
-	clAddress := viper.GetString("address")
-	if clAddress != "" {
-		address = clAddress
+	if viper.GetString("username") != "" {
+		username = viper.GetString("username")
 	}
 
-	clPort := viper.GetString("port")
-	if clPort != "" {
-		port = clPort
+	if viper.GetString("password") != "" {
+		password = viper.GetString("password")
+	}
+
+	// Check if command line flags were passed and override configuration
+	if viper.GetString("address") != "" {
+		address = viper.GetString("address")
+	}
+
+	if viper.GetString("port") != "" {
+		port = viper.GetString("port")
 	}
 
 	// If no port was given, use the standard RDP port.
@@ -197,7 +201,7 @@ func connectToHost(host string) {
 		port = rdp.DefaultPort
 	}
 
-	socket := fmt.Sprintf("%s:%s", address, port)
+	//socket := fmt.Sprintf("%s:%s", address, port)
 
 	// Open an ssh tunnel and replace socket with the localhost:localport tunnel socket.
 	var tunnel *sshtun.SSHTun
@@ -208,7 +212,10 @@ func connectToHost(host string) {
 			log.Fatalf("opening ssh tunnel: %s", err)
 		}
 
-		socket = fmt.Sprintf("localhost:%s", t.LocalPort)
+		address = "localhost"
+		port = t.LocalPort
+
+		//socket = fmt.Sprintf("localhost:%s", t.LocalPort)
 
 		defer tunnel.Stop()
 	}
@@ -218,16 +225,25 @@ func connectToHost(host string) {
 		settings = config.Settings{}
 	}
 
+	params := rdp.RDP{
+		Username:   username,
+		Password:   password,
+		Address:    address,
+		Port:       port,
+		Width:      settings.Width,
+		Height:     settings.Height,
+		Fullscreen: settings.Fullscreen,
+		Public:     settings.Public,
+		Span:       settings.Span,
+	}
+
 	// Connect to the remote desktop.
-	rdp.Connect(
-		socket,
-		username,
-		password,
-		viper.GetString("tempfile-path"),
-		settings.Width,
-		settings.Height,
-		settings.Scale,
-	)
+	if err := rdp.Connect(&params, viper.GetBool("debug")); err != nil {
+		if tunnel != nil {
+			tunnel.Stop()
+		}
+		log.Fatal(err)
+	}
 
 	// Close SSH connection when program exits. Wait for user to confirm before exiting.
 	if tunnel != nil {

@@ -5,9 +5,11 @@ import "fmt"
 // Settings is the configuration of .RDP file settings.
 // https://docs.microsoft.com/en-us/windows-server/remote/remote-desktop-services/clients/rdp-files
 type Settings struct {
-	Height int `mapstructure:"height"`
-	Width  int `mapstructure:"width"`
-	Scale  int `mapstructure:"scale"`
+	Height     int  `mapstructure:"height"`
+	Width      int  `mapstructure:"width"`
+	Fullscreen bool `mapstructure:"fullscreen"`
+	Public     bool `mapstructure:"public"`
+	Span       bool `mapstructure:"span"`
 }
 
 // Validate returns an error if a config field is invalid.
@@ -20,7 +22,7 @@ func (s Settings) Validate() error {
 		return fmt.Errorf("height value %d is invalid, must be above 200 and below 8192\n", s.Height)
 	}
 
-	if s.Scale != 0 && func() bool {
+	/*if s.Scale != 0 && func() bool {
 		// Scale is not in list of valid values
 		for _, v := range []int{100, 125, 150, 175, 200, 250, 300, 400, 500} {
 			if s.Scale == v {
@@ -30,7 +32,7 @@ func (s Settings) Validate() error {
 		return true
 	}() {
 		return fmt.Errorf("scale value %d is invalid, must be one of 100, 125, 150, 175, 200, 250, 300, 400, 500\n", s.Scale)
-	}
+	}*/
 
 	return nil
 }
