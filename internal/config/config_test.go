@@ -212,7 +212,7 @@ func TestConfiguration_HostCredentials(t *testing.T) {
 		"cred": "testcred",
 	}
 
-	user, pass, err = c.HostCredentials("testhost")
+	user, _, err = c.HostCredentials("testhost")
 	if err != nil {
 		t.Errorf("unexpected error returned getting host credentials: %s", err)
 	}
@@ -225,7 +225,7 @@ func TestConfiguration_HostCredentials(t *testing.T) {
 	// Remove host implementation of cred, only the global cred reference to the Cred object remains
 	c.Hosts["testhost"] = host
 
-	user, pass, err = c.HostCredentials("testhost")
+	user, _, err = c.HostCredentials("testhost")
 	if err != nil {
 		t.Errorf("unexpected error returned getting host credentials: %s", err)
 	}
@@ -276,7 +276,7 @@ func TestConfiguration_HostSocket(t *testing.T) {
 		"port":    "0000_globalport",
 	}
 
-	address, port, err = c.HostSocket("testhost", false)
+	address, _, err = c.HostSocket("testhost", false)
 	if err != nil {
 		t.Errorf("unexpected error returned getting host socket: %s", err)
 	}

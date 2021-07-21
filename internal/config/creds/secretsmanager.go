@@ -11,6 +11,7 @@ func SecretsManagerStruct() interface{} {
 	return &SecretsManager{}
 }
 
+// Validate returns an error if a config field is invalid.
 func (s *SecretsManager) Validate() error {
 	return nil
 }

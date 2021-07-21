@@ -72,7 +72,7 @@ func settings(body string, width, height, scale int) string {
 }
 
 func deleteFile(path string) {
-	os.Remove(path)
+	_ = os.Remove(path)
 }
 
 func writeFile(body, path string) {
@@ -83,5 +83,5 @@ func writeFile(body, path string) {
 }
 
 func runRDPFile(runPath string) {
-	open.Run(runPath)
+	_ = open.Run(runPath)
 }

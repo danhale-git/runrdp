@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/danhale-git/tss-sdk-go/server"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 // GetCredentials calls the Thycotic API via the Go SDK, obtains a secret and attempts to get the Username and Password
@@ -21,8 +21,8 @@ func GetCredentials(secretID int, url, domain string) (string, string, error) {
 
 	c := server.Configuration{
 		Credentials: server.UserCredential{
-			thyUser,
-			thyPassword,
+			Username: thyUser,
+			Password: thyPassword,
 		},
 		ServerURL: url,
 		Domain:    domain,
