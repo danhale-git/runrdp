@@ -1,3 +1,8 @@
+[settings.default]
+    fullscreen = false
+    width = 800
+    height = 600
+
 [host.awsec2.testec2host]
     getcred = true
     profile = "default"
