@@ -280,7 +280,12 @@ func getCredentials(host string) (string, string) {
 }
 
 func getSettings(host string) config.Settings {
-	settings, ok := configuration.Settings[configuration.HostGlobals[host][hosts.GlobalSettings.String()]]
+	name := configuration.HostGlobals[host][hosts.GlobalSettings.String()]
+	if name == config.DefaultSettingsName {
+		fmt.Printf("%s: 'settings = \"%s\"' can be removed because '%s' is the global default settings name.\n",
+			host, config.DefaultSettingsName, config.DefaultSettingsName)
+	}
+	settings, ok := configuration.Settings[name]
 
 	if !ok {
 		dfault, ok := configuration.Settings[config.DefaultSettingsName]
