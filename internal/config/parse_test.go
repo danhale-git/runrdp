@@ -108,8 +108,7 @@ func TestParseConfiguration(t *testing.T) {
 	v = vipersFromString(`
 [settings.settingstest]
 	height = 500000
-	width = 200
-	scale = 200`)
+	width = 200`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has invalid values")
