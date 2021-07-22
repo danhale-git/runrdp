@@ -1,7 +1,7 @@
 ![Go Report Card](https://goreportcard.com/badge/github.com/danhale-git/runrdp)
 ![golangci-lint](https://github.com/danhale-git/runrdp/actions/workflows/golangci-lint.yaml/badge.svg)
 ![test](https://github.com/danhale-git/craft/actions/workflows/go-test.yaml/badge.svg)
-![coverage](https://img.shields.io/badge/coverage-72.3%25-yellow)
+![coverage](https://img.shields.io/badge/coverage-36.5%25-orange)
 
 # RunRDP
 
@@ -15,11 +15,83 @@ RunRDP is a tool for launching MS RDP sessions from the command line based on a 
     * Define instances by inclusive/exclusive tag set or instance ID
     * AWS authentication from shared credentials file
     * EC2 _Get Password_ for RDP authentication
+-------
+# Configuration Reference
+
+Configuration is in TOML format. All config entries consist of a heading and set of key/value assignments.
+Entries take the format:
+```toml
+[<config type>[.sub type].<name>]
+stringkey   = "value"
+intkey      = 0
+boolkey     = false
+```
+
+Not all config types have sub types. `<name>` is the label chosen and referenced by the user.
+
+### [settings]
+Settings are the RDP session settings, mostly relating to window size. Naming an entry `[settings.default]` will make it the default for all hosts that don't explicitly reference another settings entry.
+```toml
+[settings.mysettings]
+height      = 800   # Height of the window in pixels
+width       = 600   # Width of the window in pixels
+fullscreen  = false # Start the session in full-screen mode (might still start in full-screen if false)
+span        = false # Span multiple monitors with the setting
+```
+
+## Hosts
+
+#### Global Fields
+Global fields may be defined for hosts of any sub type (`[host.<sub type>.myhost]`) and will override values given by that host sub type. For example the EC2 sub type obtains the IP address from AWS. The `address` global field would override that IP. 
+```toml
+[host.<any host type>.myhost]
+cred        = "mycred"          # Reference to a cred config entry used to authenticate (e.g. [cred.thycotic.mycred])
+proxy       = "myproxy"         # Reference to a host config entry
+address     = "1.2.3.4"         # Literal address for the RDP endpoint
+port        = "1234"            # Literal port for the RDP endpoint
+username    = "Administrator"   # Literal username for RDP authentication
+tunnel      = "mytunnel"        # Reference to a tunnel config entry used to start an SSH tunnel (e.g. [cred.tunnel.mytunnel])
+settings    = "mysettings"      # Reference to a settings config entry to define RDP settings (e.g. [settings.mysettings])
+```
+
+### [host.basic]
+Basic does not have any fields, only global fields may be defined. A literal address must be given in order to connect to a host.
+```toml
+[host.basic.mybasichost]
+address = "1.3.4.5" # This is a global field (see Global Fields), defined here as an example
+```
+
+### [host.ec2]
+
+```toml
+[host.ec2.myec2host]
+private = true      # Connect to the private IP address of this EC2 host
+getcred = true      # Call the AWS EC2 _Get Password_ feature to get credentials for RDP authentication
+id = "i-abcde1234"  # Locate the EC2 host by instance ID
+profile = "default" # AWS Shared Credentials profile to use for authentication
+region = "eu-west"  # AWS region in which to operate
+
+includetags = ["Name;rdp-target","env;dev"] # Locate the EC2 host by filtering for these tags
+excludetags = ["env;prod"]                  # Filter out any hosts with these tags
+```
 
 
-Configuration parsing and command line interface use github.com/spf13/cobra and github.com/spf13/viper.
+
+// EC2 defines an AWS EC2 instance to connect to by getting it's address from the AWS API.
+type EC2 struct {
+Private     bool
+GetCred     bool
+ID          string
+Profile     string
+Region      string
+IncludeTags []string
+ExcludeTags []string
+
+	svc ec2iface.EC2API
+}
+
 _______
-Configuration is in TOML format.
+## Configuration Guide
 
 This is a host configuration entry of type AWS EC2 named 'myhost'.
 
