@@ -39,7 +39,9 @@ const Config = `[cred.awssm.awssmtest]
 [settings.settingstest]
 	height = 200
 	width = 200
-	scale = 200
+	fullscreen = true
+	span = true
+	public = true
 `
 
 // ConfigKeys returns a slice containing all expected mock config keys
