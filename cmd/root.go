@@ -303,13 +303,13 @@ func getSettings(host string) config.Settings {
 	if viper.GetInt("width") != 0 {
 		settings.Width = viper.GetInt("width")
 	}
-	if viper.GetBool("fullscreen") != false {
+	if !viper.GetBool("fullscreen") {
 		settings.Fullscreen = viper.GetBool("fullscreen")
 	}
-	if viper.GetBool("public") != false {
+	if !viper.GetBool("public") {
 		settings.Public = viper.GetBool("public")
 	}
-	if viper.GetBool("span") != false {
+	if !viper.GetBool("span") {
 		settings.Span = viper.GetBool("span")
 	}
 
