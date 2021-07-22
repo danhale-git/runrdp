@@ -5,8 +5,17 @@
 
 # RunRDP
 
-RunRDP is a tool for configuring Windows Remote Desktop hosts in text files and starting RDP sessions from the command line.
-It is not a standalone RDP client, it runs the default RDP client.
+RunRDP is a tool for launching MS RDP sessions from the command line based on a text configuration. It is not a standalone RDP client.
+
+## Features
+* SSH tunnel (SSH port forwarding) and proxy support
+* Thycotic Secret Server credential storage
+* AWS Secrets Manager credentials storage
+* AWS EC2 integration
+    * Define instances by inclusive/exclusive tag set or instance ID
+    * AWS authentication from shared credentials file
+    * EC2 _Get Password_ for RDP authentication
+
 
 Configuration parsing and command line interface use github.com/spf13/cobra and github.com/spf13/viper.
 _______

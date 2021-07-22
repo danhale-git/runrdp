@@ -39,6 +39,7 @@ func Execute() {
 	}
 
 	root.AddCommand(findCommand())
+	root.AddCommand(versionCommand())
 
 	vipers, err := readAllConfigs(viper.GetString("config-root"), ".toml")
 	if err != nil {
