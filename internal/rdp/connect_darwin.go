@@ -7,32 +7,38 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/atotto/clipboard"
 	"github.com/skratchdot/open-golang/open"
 )
 
 // Connect writes an RDP file, runs it then deletes it 1 second later.
 //func Connect(host, user, pass, path string, width, height, scale int) {
-func Connect(rdp RDP) {
+func Connect(rdp *RDP, debug bool) error {
 	fb := fileBody(rdp.Address, rdp.Username)
 	fb = settings(fb, rdp.Width, rdp.Height, 100)
 
-	if pass != "" {
+	if rdp.Password != "" {
 		fmt.Println("WARNING: Writing secret to clipboard - be careful where you paste!")
 
-		err := clipboard.WriteAll(password)
+		err := clipboard.WriteAll(rdp.Password)
 
 		if err != nil {
 			log.Fatalf("writing password to clipboard: %s", err)
 		}
 	}
 
+	path := viper.GetString("tempfile-path")
+
 	writeFile(fb, path)
 
-	runRDPFile(path)
+	runRDPFile(viper.GetString("tempfile-path"))
 	// Ensure the file is deleted. Wait for 1 second before deleting it to allow the RDP application to read it.
 	defer deleteFile(path)
 	time.Sleep(1 * time.Second)
+
+	return nil
 }
 
 func fileBody(host, user string) string {
