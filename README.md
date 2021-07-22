@@ -20,7 +20,7 @@ RunRDP is a tool for launching MS RDP sessions from the command line based on a 
 
 Configuration is in TOML format. All config entries consist of a heading and set of key/value assignments.
 Entries take the format:
-```toml
+```
 [<config type>[.sub type].<name>]
 stringkey   = "value"
 intkey      = 0
