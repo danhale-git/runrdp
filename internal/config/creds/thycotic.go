@@ -10,7 +10,7 @@ import (
 
 	"github.com/danhale-git/tss-sdk-go/server"
 	"github.com/spf13/viper"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 // ThycoticStruct returns a struct of type creds.Thycotic.
