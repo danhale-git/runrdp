@@ -7,6 +7,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/spf13/viper"
+
 	"github.com/danhale-git/tss-sdk-go/server"
 	terminal "golang.org/x/term"
 )
@@ -20,6 +22,7 @@ func GetCredentials(secretID int, url, domain string) (string, string, error) {
 	}
 
 	fmt.Println(thyUser, len(thyPassword))
+	fmt.Println(viper.GetString("thycotic-url"), viper.GetString("thycotic-domain"))
 
 	c := server.Configuration{
 		Credentials: server.UserCredential{
