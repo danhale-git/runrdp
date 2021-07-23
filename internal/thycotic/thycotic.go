@@ -19,6 +19,8 @@ func GetCredentials(secretID int, url, domain string) (string, string, error) {
 		return "", "", err
 	}
 
+	fmt.Println(thyUser, len(thyPassword))
+
 	c := server.Configuration{
 		Credentials: server.UserCredential{
 			Username: thyUser,
