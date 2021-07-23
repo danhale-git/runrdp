@@ -41,58 +41,9 @@ func Execute() {
 	root.AddCommand(findCommand())
 	root.AddCommand(versionCommand())
 
-	vipers, err := readAllConfigs(viper.GetString("config-root"), ".toml")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	configuration, err = config.New(vipers)
-	if err != nil {
-		log.Fatalf("parsing configs: %s", err)
-	}
-
 	if err = root.Execute(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func readAllConfigs(directory, extension string) (map[string]*viper.Viper, error) {
-	infos, err := ioutil.ReadDir(directory)
-	if err != nil {
-		return nil, err
-	}
-
-	files := make([]*os.File, 0)
-	for _, f := range infos {
-		if filepath.Ext(f.Name()) == extension {
-			f, err := os.Open(filepath.Join(directory, f.Name()))
-			if err != nil {
-				return nil, err
-			}
-			files = append(files, f)
-		}
-	}
-
-	configs := make(map[string]io.Reader)
-	for _, f := range files {
-		if debug {
-			fmt.Println("reading config:", f.Name())
-		}
-		configs[f.Name()] = f
-	}
-
-	vipers, err := config.ReadConfigs(configs)
-	if err != nil {
-		log.Fatalf("reading configs: %s", err)
-	}
-
-	for _, f := range files {
-		if err := f.Close(); err != nil {
-			fmt.Println("error closing file:", err)
-		}
-	}
-
-	return vipers, nil
 }
 
 func rootCommand() *cobra.Command {
@@ -104,7 +55,8 @@ func rootCommand() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return cobra.RangeArgs(1, 1)(cmd, args)
 		},
-		Run: Run,
+		PersistentPreRun: PersistentPreRun,
+		Run:              Run,
 	}
 
 	// Find home directory.
@@ -173,6 +125,20 @@ func rootCommand() *cobra.Command {
 	return command
 }
 
+func PersistentPreRun(_ *cobra.Command, _ []string) {
+	debug = viper.GetBool("debug")
+
+	vipers, err := readAllConfigs(viper.GetString("config-root"), ".toml")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	configuration, err = config.New(vipers)
+	if err != nil {
+		log.Fatalf("parsing configs: %s", err)
+	}
+}
+
 // Run attempts to locate the given argument in the hosts config. If it is not a config entry the argument is validated
 // as a socket and a connection is attempted if validation passes.
 func Run(_ *cobra.Command, args []string) {
@@ -187,9 +153,49 @@ func Run(_ *cobra.Command, args []string) {
 	}
 }
 
-func connectToHost(host string) {
-	debug = viper.GetBool("debug")
+func readAllConfigs(directory, extension string) (map[string]*viper.Viper, error) {
+	infos, err := ioutil.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
 
+	files := make([]*os.File, 0)
+	for _, f := range infos {
+		if filepath.Ext(f.Name()) == extension {
+			f, err := os.Open(filepath.Join(directory, f.Name()))
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, f)
+		}
+	}
+
+	if debug {
+		fmt.Println("config directory is:", directory)
+	}
+	configs := make(map[string]io.Reader)
+	for _, f := range files {
+		if debug {
+			fmt.Println("reading config:", filepath.Base(f.Name()))
+		}
+		configs[f.Name()] = f
+	}
+
+	vipers, err := config.ReadConfigs(configs)
+	if err != nil {
+		log.Fatalf("reading configs: %s", err)
+	}
+
+	for _, f := range files {
+		if err := f.Close(); err != nil {
+			fmt.Println("error closing file:", err)
+		}
+	}
+
+	return vipers, nil
+}
+
+func connectToHost(host string) {
 	address, port := getSocket(host)
 
 	username, password := getCredentials(host)
