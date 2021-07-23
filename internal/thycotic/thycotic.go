@@ -1,44 +1,18 @@
 package thycotic
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
-	"syscall"
-
-	"github.com/spf13/viper"
 
 	"github.com/danhale-git/tss-sdk-go/server"
-	terminal "golang.org/x/term"
 )
+
+type Secreter interface {
+	Secret(id int) (*server.Secret, error)
+}
 
 // GetCredentials calls the Thycotic API via the Go SDK, obtains a secret and attempts to get the Username and Password
 // fields. If either field is not present an error is returned.
-func GetCredentials(secretID int, url, domain string) (string, string, error) {
-	thyUser, thyPassword, err := credentials()
-	if err != nil {
-		return "", "", err
-	}
-
-	fmt.Println(thyUser, len(thyPassword))
-	fmt.Println(viper.GetString("thycotic-url"), viper.GetString("thycotic-domain"))
-
-	c := server.Configuration{
-		Credentials: server.UserCredential{
-			Username: thyUser,
-			Password: thyPassword,
-		},
-		ServerURL: url,
-		Domain:    domain,
-	}
-
-	s, err := server.New(c)
-
-	if err != nil {
-		return "", "", fmt.Errorf("creating thycotic server: %s", err)
-	}
-
+func GetCredentials(s Secreter, secretID int) (string, string, error) {
 	secret, err := s.Secret(secretID)
 
 	if err != nil {
@@ -71,23 +45,4 @@ func getField(secret *server.Secret, fieldName string) (string, error) {
 	}
 
 	return value, nil
-}
-
-func credentials() (string, string, error) {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("Enter Thycotic Username: ")
-	username, _ := reader.ReadString('\n')
-
-	fmt.Print("Enter Thycotic Password: ")
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return "", "", fmt.Errorf("reading password input: %s", err)
-	}
-
-	fmt.Println()
-
-	password := string(bytePassword)
-
-	return strings.TrimSpace(username), strings.TrimSpace(password), nil
 }
