@@ -75,6 +75,9 @@ func readAllConfigs(directory, extension string) (map[string]*viper.Viper, error
 
 	configs := make(map[string]io.Reader)
 	for _, f := range files {
+		if debug {
+			fmt.Println("reading config:", f.Name())
+		}
 		configs[f.Name()] = f
 	}
 
@@ -159,11 +162,11 @@ func rootCommand() *cobra.Command {
 		"Directory containing SSH keys.",
 	)
 
-	command.PersistentFlags().String("thycotic-url", path.Join(home, ""),
+	command.PersistentFlags().String("thycotic-url", "",
 		"URL for Thycotic Secret Server.",
 	)
 
-	command.PersistentFlags().String("thycotic-domain", path.Join(home, ""),
+	command.PersistentFlags().String("thycotic-domain", "",
 		"Active Directory domain for Thycotic Secret Server.",
 	)
 
