@@ -43,6 +43,8 @@ func (t *Thycotic) Retrieve() (string, string, error) {
 		return "", "", fmt.Errorf("invalid thycotic url '%s': %w", err)
 	}
 
+	fmt.Println("Thycotic URL:", u, "Thycotic domain:", d)
+
 	c := server.Configuration{
 		Credentials: server.UserCredential{
 			Username: thyUser,
