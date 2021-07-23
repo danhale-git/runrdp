@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
@@ -34,16 +35,34 @@ type Cred interface {
 	Validate() error
 }
 
-// ReadConfigs reads a map of io.Reader into a matching map of viper.Viper.
+// ReadConfigs reads a map of io.Reader into a matching map of viper.Viper. All config files are also concatenated with
+// newline delimiters and read into the global viper instance.
 func ReadConfigs(readers map[string]io.Reader) (map[string]*viper.Viper, error) {
+	concatConfig := make([]byte, 0)
+
 	vipers := make(map[string]*viper.Viper)
 	for k, r := range readers {
+		var buf bytes.Buffer
+		tee := io.TeeReader(r, &buf)
+
+		// Read config once for individual viper instance
 		v := viper.New()
 		v.SetConfigType("toml")
-		if err := v.ReadConfig(r); err != nil {
+		if err := v.ReadConfig(tee); err != nil {
 			return nil, fmt.Errorf("reading config: %w", err)
 		}
 		vipers[k] = v
+
+		// Read config a second time for single concatenated viper instance
+		concatConfig = append(
+			concatConfig,
+			append(buf.Bytes(), []byte("\n")...)...,
+		)
+	}
+
+	viper.SetConfigType("toml")
+	if err := viper.ReadConfig(bytes.NewReader(concatConfig)); err != nil {
+		return nil, fmt.Errorf("reading config: %w", err)
 	}
 
 	return vipers, nil
