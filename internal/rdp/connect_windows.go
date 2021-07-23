@@ -7,14 +7,39 @@ import (
 )
 
 func Connect(rdp *RDP, debug bool) error {
-	cmdkeyCreate := exec.Command("cmdkey",
-		fmt.Sprintf("/generic:%s", rdp.Address),
-		fmt.Sprintf("/user:%s", rdp.Username),
-		fmt.Sprintf("/pass:%s", rdp.Password),
-	)
-	cmdkeyDelete := exec.Command("cmdkey",
-		fmt.Sprintf("/delete:%s", rdp.Address),
-	)
+	if rdp.Address == "" {
+		return fmt.Errorf("address is an empty string, nothing to connect to")
+	}
+
+	if rdp.Username != "" {
+		cmdkeyCreateArgs := []string{
+			fmt.Sprintf("/generic:%s", rdp.Address),
+			fmt.Sprintf("/user:%s", rdp.Username),
+		}
+
+		if rdp.Password != "" {
+			cmdkeyCreateArgs = append(cmdkeyCreateArgs, fmt.Sprintf("/pass:%s", rdp.Password))
+		}
+
+		cmdkeyCreate := exec.Command("cmdkey", cmdkeyCreateArgs...)
+		cmdkeyDelete := exec.Command("cmdkey", fmt.Sprintf("/delete:%s", rdp.Address))
+
+		if debug {
+			fmt.Println(strings.Replace(cmdkeyCreate.String(), rdp.Password, "REMOVED", 1))
+		}
+		if err := cmdkeyCreate.Run(); err != nil {
+			return fmt.Errorf("creating credentials using cmdkey.exe: %w", err)
+		}
+
+		defer func() {
+			if debug {
+				fmt.Println(cmdkeyDelete.String())
+			}
+			if err := cmdkeyDelete.Run(); err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	mstscArgs := []string{
 		fmt.Sprintf("/v:%s:%s", rdp.Address, rdp.Port),
@@ -38,22 +63,6 @@ func Connect(rdp *RDP, debug bool) error {
 	}
 
 	startSession := exec.Command("mstsc", mstscArgs...)
-
-	defer func() {
-		if debug {
-			fmt.Println(cmdkeyDelete.String())
-		}
-		if err := cmdkeyDelete.Run(); err != nil {
-			panic(err)
-		}
-	}()
-
-	if debug {
-		fmt.Println(strings.Replace(cmdkeyCreate.String(), rdp.Password, "REMOVED", 1))
-	}
-	if err := cmdkeyCreate.Run(); err != nil {
-		return fmt.Errorf("creating credentials using cmdkey.exe: %w", err)
-	}
 
 	if debug {
 		fmt.Println(startSession.String())
