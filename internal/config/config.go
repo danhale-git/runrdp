@@ -56,7 +56,7 @@ func ReadConfigs(readers map[string]io.Reader) (map[string]*viper.Viper, error) 
 		// Read config a second time for single concatenated viper instance
 		concatConfig = append(
 			concatConfig,
-			append(buf.Bytes(), []byte("\n")...)...,
+			append(buf.Bytes(), []byte("\n\n")...)...,
 		)
 	}
 
