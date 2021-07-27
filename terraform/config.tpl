@@ -3,11 +3,21 @@
     width = 800
     height = 600
 
-[host.awsec2.testec2host]
+[cred.awssm.testawssm]
+    usernameid = "${secret_u}"
+    passwordid = "${secret_p}"
+
+[host.awsec2.testec2hostgetcred]
     getcred = true
     profile = "default"
     region = "${region}"
     includetags = ["Name;${instance_name}"]
+
+[host.awsec2.testec2hostawssm]
+    profile = "default"
+    region = "${region}"
+    includetags = ["Name;${instance_name}"]
+    cred = "testawssm"
 
 [host.awsec2.testproxyec2host]
     getcred = true
