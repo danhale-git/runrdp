@@ -7,6 +7,10 @@ const Config = `[cred.awssm.awssmtest]
     region = "eu-west-2"
     profile = "default"
 
+[thycotic.settings]
+thycotic-url = "testthycotic-url"
+thycotic-domain = "testthycotic-domain"
+
 [cred.thycotic.thycotictest]
 	secretid = 1234
 

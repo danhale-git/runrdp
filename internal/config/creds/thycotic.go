@@ -41,8 +41,10 @@ func (t *Thycotic) Retrieve() (string, string, error) {
 		return "", "", err
 	}
 
-	d := viper.GetString("thycotic-domain")
-	u := viper.GetString("thycotic-url")
+	thycoticSettings := viper.GetStringMap("thycotic.settings")
+
+	d := thycoticSettings["thycotic-domain"].(string)
+	u := thycoticSettings["thycotic-url"].(string)
 	if _, err := url.Parse(u); err != nil {
 		return "", "", fmt.Errorf("invalid thycotic url '%s': %w", u, err)
 	}
