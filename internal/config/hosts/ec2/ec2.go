@@ -9,8 +9,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -75,7 +75,8 @@ func GetInstances(svc ec2iface.EC2API, id, filterJSON string) ([]*ec2.Instance, 
 	return instances, nil
 }
 
-func Tag(instance *ec2.Instance, key string) *string {
+// GetTag retrieves the value of key from the instance.
+func GetTag(instance *ec2.Instance, key string) *string {
 	for _, tag := range instance.Tags {
 		if *tag.Key == key {
 			return tag.Value
@@ -85,48 +86,43 @@ func Tag(instance *ec2.Instance, key string) *string {
 	return nil
 }
 
+// IsRunning returns true if the instance state is 'running'.
 func IsRunning(instance *ec2.Instance) bool {
 	return *instance.State.Name == ec2.InstanceStateNameRunning
 }
 
-func ChooseInstance(instances []*ec2.Instance) (*ec2.Instance, error) {
-	switch {
-	case len(instances) > 1:
-		fmt.Println("Multiple EC2 instances:")
+// ChooseInstance displays a picker reads a choice from the user. The inpur parameter should be os.Stdin.
+func ChooseInstance(instances []*ec2.Instance, input io.Reader) (*ec2.Instance, error) {
+	fmt.Println("Multiple EC2 instances:")
 
-		for i, instance := range instances {
-			n := ""
-			for _, tag := range instance.Tags {
-				if *tag.Key == "Name" {
-					n = *tag.Value
-				}
+	for i, instance := range instances {
+		n := ""
+		for _, tag := range instance.Tags {
+			if *tag.Key == "Name" {
+				n = *tag.Value
 			}
-			fmt.Printf("%d. %s - %s\n", i+1, n, *instance.State.Name)
 		}
-
-		fmt.Print("\nEnter number to choose: ")
-
-		// Read int from command line input
-		reader := bufio.NewReader(os.Stdin)
-		text, err := reader.ReadString('\n')
-
-		if err != nil {
-			panic(err)
-		}
-
-		selected, err := strconv.Atoi(strings.Trim(text, "\r\n"))
-
-		// User entered an invalid value, assume they want to cancel
-		if err != nil || selected > len(instances) || selected == 0 {
-			return nil, errors.New("no instance was chosen")
-		}
-
-		return instances[selected-1], nil
-	case len(instances) == 0:
-		return nil, fmt.Errorf("no instances found")
-	default:
-		return instances[0], nil
+		fmt.Printf("%d. %s - %s\n", i+1, n, *instance.State.Name)
 	}
+
+	fmt.Print("\nEnter number to choose: ")
+
+	// Read int from command line input
+	reader := bufio.NewReader(input)
+	text, err := reader.ReadString('\n')
+
+	if err != nil {
+		return nil, fmt.Errorf("reading input: %s", err)
+	}
+
+	selected, err := strconv.Atoi(strings.Trim(text, "\r\n"))
+
+	// User entered an invalid value, assume they want to cancel
+	if err != nil || selected > len(instances) || selected == 0 {
+		return nil, errors.New("no instance was chosen")
+	}
+
+	return instances[selected-1], nil
 }
 
 // GetPassword returns the initial administrator credentials for the given EC2 instance or an error if they are not

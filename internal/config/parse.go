@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode"
 
 	"github.com/danhale-git/runrdp/internal/config/creds"
 
@@ -178,8 +179,15 @@ func setFields(values reflect.Value, data map[string]interface{}) error {
 	// Map fields to their lower case names
 	valueMap := make(map[string]reflect.Value)
 	for i := 0; i < structType.NumField(); i++ {
+		rawFieldName := structType.Field(i).Name
+
+		// Ignore unexported fields
+		if unicode.IsLower(rune(rawFieldName[0])) {
+			continue
+		}
+
 		v := values.Field(i)
-		fieldName := strings.ToLower(structType.Field(i).Name)
+		fieldName := strings.ToLower(rawFieldName)
 
 		valueMap[fieldName] = v
 

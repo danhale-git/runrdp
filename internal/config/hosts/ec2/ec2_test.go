@@ -1,7 +1,11 @@
 package ec2
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
+
+	"github.com/danhale-git/runrdp/internal/mock"
 
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 
@@ -13,6 +17,23 @@ import (
 type APIMock struct {
 	ec2iface.EC2API
 	Instances []*ec2.Instance
+}
+
+// TestGetInstance
+
+func TestGetInstance(t *testing.T) {
+	svc := APIMock{Instances: mock.InstancesWithNames("instance1", "instance2", "instance3")}
+
+	expectedLen := len(svc.Instances)
+
+	instances, err := GetInstances(&svc, "", "")
+	if err != nil {
+		t.Fatalf("unexpected error returned: %s", err)
+	}
+
+	if len(instances) != expectedLen {
+		t.Errorf("unexpected number of instances returned: expected %d: got %d", expectedLen, len(instances))
+	}
 }
 
 func (e *APIMock) DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
@@ -35,54 +56,7 @@ func (e *APIMock) DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeI
 	return &ec2.DescribeInstancesOutput{Reservations: r}, nil
 }
 
-func TestGetInstance(t *testing.T) {
-	svc := APIMock{Instances: []*ec2.Instance{
-		{
-			Tags: []*ec2.Tag{
-				{
-					Key:   aws.String("Name"),
-					Value: aws.String("instance1"),
-				},
-			},
-		},
-		{
-			Tags: []*ec2.Tag{
-				{
-					Key:   aws.String("Name"),
-					Value: aws.String("instance2"),
-				},
-			},
-		},
-		{
-			Tags: []*ec2.Tag{
-				{
-					Key:   aws.String("Name"),
-					Value: aws.String("instance3"),
-				},
-			},
-		},
-	}}
-
-	expectedLen := len(svc.Instances)
-
-	instances, err := GetInstances(&svc, "", "")
-	if err != nil {
-		t.Fatalf("unexpected error returned: %s", err)
-	}
-
-	if len(instances) != expectedLen {
-		t.Errorf("unexpected number of instances returned: expected %d: got %d", expectedLen, len(instances))
-	}
-}
-
-func (e *APIMock) GetPasswordData(_ *ec2.GetPasswordDataInput) (*ec2.GetPasswordDataOutput, error) {
-	return &ec2.GetPasswordDataOutput{
-		PasswordData: aws.String(`ITPAqsegJEBl8zUr6e5t80mGKdueK6nFusgfaUMp5IA5gaJfqnp5Q3w/HkKsffC7twg9EhwOfLElUU5U7
-AOhJLVAKKK/6g1hu8Qo7w+ZY03qqvYJIlWltS/VHBSgAfPudJ6oQCQXfZtkc4vak2d0ttYY2nUuN/oVVU8eT744eFU0fQkMEMaVpA0GdIPyI5A9Qtm/o6V
-pU+nI60J88l2vCcIgPSIPuwf1NkcJxUbB02VbXtCyU5znzXxIHuRYpLrmNwgTiFMFC1MfFrKYEEjMYrVsiklEGBJXJDfubLLqulUUIGuEAzceesHgdtRFI
-rcJfX78bOwI67aVe0b2TaorzQ==`),
-	}, nil
-}
+// TestGetPassword
 
 func TestGetPassword(t *testing.T) {
 	svc := &APIMock{}
@@ -96,6 +70,15 @@ func TestGetPassword(t *testing.T) {
 	if got != want {
 		t.Errorf("unexpected value returned: want %s: got %s", want, got)
 	}
+}
+
+func (e *APIMock) GetPasswordData(_ *ec2.GetPasswordDataInput) (*ec2.GetPasswordDataOutput, error) {
+	return &ec2.GetPasswordDataOutput{
+		PasswordData: aws.String(`ITPAqsegJEBl8zUr6e5t80mGKdueK6nFusgfaUMp5IA5gaJfqnp5Q3w/HkKsffC7twg9EhwOfLElUU5U7
+AOhJLVAKKK/6g1hu8Qo7w+ZY03qqvYJIlWltS/VHBSgAfPudJ6oQCQXfZtkc4vak2d0ttYY2nUuN/oVVU8eT744eFU0fQkMEMaVpA0GdIPyI5A9Qtm/o6V
+pU+nI60J88l2vCcIgPSIPuwf1NkcJxUbB02VbXtCyU5znzXxIHuRYpLrmNwgTiFMFC1MfFrKYEEjMYrVsiklEGBJXJDfubLLqulUUIGuEAzceesHgdtRFI
+rcJfX78bOwI67aVe0b2TaorzQ==`),
+	}, nil
 }
 
 func testPassword() string {
@@ -130,4 +113,37 @@ HZTLAoGBAIldvFbyeDuquYlXCgOR9QU/1YtTc5aHaxDbm4dxAp8HbD2mZhaaMvVW
 Z6ovPDMDlCv3VHlUlLTi5WlYpcrxJBUNyeTHbxOTr1HWE18cbrcAWrbqbdevUWUi
 u+eYWXZMNchaUW+a52/0KE7Q2pYZm70LiY41bDEe26epRk5+Dg4I
 -----END RSA PRIVATE KEY-----`)
+}
+
+// TestChooseInstance
+
+func TestChooseInstance(t *testing.T) {
+	instances := mock.InstancesWithNames("a", "b", "c")
+
+	buf := bytes.NewBuffer([]byte{})
+
+	buf.Write([]byte("1\n"))
+
+	i, err := ChooseInstance(instances, buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	if i == nil {
+		t.Fatal("nil instances returned with no error")
+	}
+
+	if *GetTag(i, "Name") != "a" {
+		t.Errorf("unexpected instance '%s' returned: expected '%s'", *GetTag(i, "Name"), "a")
+	}
+
+	buf.Write([]byte("invalidinput\n"))
+
+	i, _ = ChooseInstance(instances, buf)
+	if i != nil {
+		t.Fatalf("instance was not nil for invalid input")
+	}
+
+	// ChoseInstances prints a string that doesn't end in a newline
+	fmt.Println()
 }
