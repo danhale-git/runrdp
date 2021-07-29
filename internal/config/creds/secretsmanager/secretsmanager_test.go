@@ -6,17 +6,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
-type SecretsManagerMockService struct {
+type APIMock struct {
 	SecretValues map[string]string
 }
 
-func (s *SecretsManagerMockService) GetSecretValue(i *secretsmanager.GetSecretValueInput) (*secretsmanager.GetSecretValueOutput, error) {
+func (s *APIMock) GetSecretValue(i *secretsmanager.GetSecretValueInput) (*secretsmanager.GetSecretValueOutput, error) {
 	secret := s.SecretValues[*i.SecretId]
 	return &secretsmanager.GetSecretValueOutput{SecretString: &secret}, nil
 }
 
 func TestGet(t *testing.T) {
-	s := SecretsManagerMockService{SecretValues: map[string]string{
+	s := APIMock{SecretValues: map[string]string{
 		"testUsername": "username",
 		"testPassword": "password",
 	}}
@@ -25,7 +25,7 @@ func TestGet(t *testing.T) {
 	testGet(s, "testPassword", "password", t)
 }
 
-func testGet(s SecretsManagerMockService, id, exp string, t *testing.T) {
+func testGet(s APIMock, id, exp string, t *testing.T) {
 	u, err := Get(&s, id)
 	if err != nil {
 		t.Errorf("unexpected error returned getting %s", id)
