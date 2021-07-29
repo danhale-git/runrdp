@@ -8,29 +8,29 @@
     passwordid = "${secret_p}"
 
 [host.awsec2.testec2hostgetcred]
+    id = "${instance_id}"
     getcred = true
     profile = "default"
     region = "${region}"
-    includetags = ["Name;${instance_name}"]
 
 [host.awsec2.testec2hostawssm]
+    id = "${instance_id}"
     profile = "default"
     region = "${region}"
-    includetags = ["Name;${instance_name}"]
     cred = "testawssm"
 
 [host.awsec2.testproxyec2host]
+    id = "${instance_id}"
     getcred = true
     profile = "default"
     region = "${region}"
-    includetags = ["Name;${instance_name}"]
     proxy = "testproxy"
 
 [host.awsec2.testtunnelec2host]
+    id = "${instance_id}"
     getcred = true
     profile = "default"
     region = "${region}"
-    includetags = ["Name;${instance_name}"]
     private = true
     tunnel = "testtunnel"
 
@@ -38,7 +38,21 @@
     address = "${proxy_address}"
 
 [tunnel.testtunnel]
-    host = "testproxy" 
-	localport = "55389" 
+    host = "testproxy"
+	localport = "55389"
 	key = "C:/Users/danha/.ssh/VPC"
 	User = "ec2-user"
+
+[host.awsec2.testec2hostfilter]
+    getcred = true
+    profile = "default"
+    region = "${region}"
+    proxy = "testproxy"
+    filterjson = """
+    [
+      {
+        "Name": "tag:Name",
+        "Values": ["rdp-target"]
+      }
+    ]
+    """

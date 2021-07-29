@@ -1,5 +1,10 @@
 package mock
 
+import (
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
+)
+
 // Config is a mock of a config with all entry types
 const Config = `[cred.awssm.awssmtest]
     usernameid = "TestInstanceUsername"
@@ -22,8 +27,14 @@ thycotic-domain = "testthycotic-domain"
 	getcred = true
     profile = "TESTVALUE"
     region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]
-    excludetags = ["mytag;myothervalue"]
+    filterjson = """
+    [
+      {
+        "Name": "tag:Name",
+        "Values": ["rdp-target"]
+      }
+    ]
+    """
 
 [host.basic.basictest]
 	cred = "global"
@@ -57,6 +68,28 @@ func ConfigKeys() []string {
 		"tunnel.tunneltest",
 		"settings.settingstest",
 	}
+}
+
+// InstancesWithNames returns a slice of ec2.Instance with the given names and a status of 'running'.
+func InstancesWithNames(names ...string) []*ec2.Instance {
+	instances := make([]*ec2.Instance, len(names))
+
+	for i, n := range names {
+		instances[i] = &ec2.Instance{
+			Tags: []*ec2.Tag{
+				{
+					Key:   aws.String("Name"),
+					Value: aws.String(n),
+				},
+			},
+			State: &ec2.InstanceState{
+				Code: nil,
+				Name: aws.String(ec2.InstanceStateNameRunning),
+			},
+		}
+	}
+
+	return instances
 }
 
 // HostCred implements creds.Cred and hosts.Host and defines literal credentials or socket for testing purposes.

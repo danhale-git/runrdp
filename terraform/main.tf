@@ -38,11 +38,14 @@ resource aws_secretsmanager_secret rdp_target_username {
   name = format("%sUsername", aws_instance.rdp_target.tags["Name"])
 
   provisioner "local-exec" {
-    command = format("aws secretsmanager put-secret-value --secret-id %s --secret-string %s",
+    command = format("aws secretsmanager put-secret-value --secret-id '%s' --secret-string '%s'",
       format("%sUsername", aws_instance.rdp_target.tags["Name"]),
       "Administrator"
     )
+    interpreter = ["PowerShell", "-Command"]
   }
+
+  recovery_window_in_days = 0
 
   depends_on = [
     aws_instance.rdp_target
@@ -53,11 +56,14 @@ resource aws_secretsmanager_secret rdp_target_password {
   name = format("%sPassword", aws_instance.rdp_target.tags["Name"])
 
   provisioner "local-exec" {
-    command = format("aws secretsmanager put-secret-value --secret-id %s --secret-string %s",
+    command = format("aws secretsmanager put-secret-value --secret-id '%s' --secret-string '%s'",
       format("%sPassword", aws_instance.rdp_target.tags["Name"]),
       rsadecrypt(aws_instance.rdp_target.password_data, file("C:/Users/danha/.ssh/VPC")),
     )
+    interpreter = ["PowerShell", "-Command"]
   }
+
+  recovery_window_in_days = 0
 
   depends_on = [
     aws_instance.rdp_target
@@ -127,6 +133,7 @@ resource "local_file" "config" {
       region        = "eu-west-2"
       instance_name = aws_instance.rdp_target.tags["Name"]
       proxy_address = aws_instance.rdp_proxy.public_ip
+      instance_id = aws_instance.rdp_target.id
     }
   )
   filename = "C:/Users/danha/.runrdp/terraformconfig.toml"

@@ -80,13 +80,12 @@ func TestParseConfiguration(t *testing.T) {
     private = true
     getcred = true
     profile = "default"
-    region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]`)
+    region = "eu-west-2"`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has a duplicate key")
 	} else if !errors.Is(err, &DuplicateConfigNameError{}) {
-		t.Errorf("unexpecred error returned: expected DuplicateConfigNameError: got %T", errors.Unwrap(err))
+		t.Errorf("unexpecred error returned: expected DuplicateConfigNameError: got %T: %s", errors.Unwrap(err), err)
 	}
 
 	v = vipersFromString(`
@@ -95,8 +94,7 @@ func TestParseConfiguration(t *testing.T) {
     private = 1234
     getcred = true
     profile = "default"
-    region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]`)
+    region = "eu-west-2"`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has an incorrect field value type")
@@ -110,8 +108,7 @@ func TestParseConfiguration(t *testing.T) {
     private = 1234
     getcred = true
     profile = "default"
-    region = "eu-west-2"
-    includetags = ["mytag;mytagvalue", "Name;MyInstanceName"]`)
+    region = "eu-west-2"`)
 	_, err = New(v)
 	if err == nil {
 		t.Errorf("no error returned when config has an incorrect field value type")
@@ -142,7 +139,7 @@ func structHasZeroField(values reflect.Value) (bool, string) {
 	structType := values.Type()
 
 	for i := 0; i < structType.NumField(); i++ {
-		// It is not possible to check unexported fields
+		// Ignore unexported fields
 		if structType.Field(i).PkgPath != "" {
 			continue
 		}
