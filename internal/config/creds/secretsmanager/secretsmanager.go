@@ -16,10 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
-type SecretValuer interface {
-	GetSecretValue(*secretsmanager.GetSecretValueInput) (*secretsmanager.GetSecretValueOutput, error)
-}
-
 // NewSession creates and validates a new AWS session. If region is an empty string, .aws/config region settings will be
 // used. A new Secrets Manager service is returned.
 func NewSession(profile, region string) secretsmanageriface.SecretsManagerAPI {
@@ -37,7 +33,7 @@ func NewSession(profile, region string) secretsmanageriface.SecretsManagerAPI {
 }
 
 // Get retrieves the secret with the given key from AWS Secrets Manager.
-func Get(svc SecretValuer, secretKey string) (string, error) {
+func Get(svc secretsmanageriface.SecretsManagerAPI, secretKey string) (string, error) {
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretKey),
 	}

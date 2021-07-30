@@ -3,10 +3,13 @@ package secretsmanager
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
 type APIMock struct {
+	secretsmanageriface.SecretsManagerAPI
 	SecretValues map[string]string
 }
 
