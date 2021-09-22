@@ -55,6 +55,7 @@ Credentials used for RDP authentication.
   cred = "mycred"
 
 [cred.<type>.mycred]
+# See Credential Types section below
 ```
 
 ### proxy
@@ -65,6 +66,7 @@ Another host configuration for a computer which is proxying RDP connections.
   proxy = "myproxyhost"
 
 [host.<type>.myproxyhost]
+# See Host Types section below
 ```
 
 ### settings
@@ -114,7 +116,7 @@ Basic does not have any fields, only global fields may be defined. A literal add
 ```
 
 ### host.ec2
-EC2 instance to connect to by getting it's address from the AWS API. Either an ID or filterJSON is required unless the global _address_ field is defined.
+EC2 instance to connect to by getting its address from the AWS API. Either an ID or filterJSON is required unless the global _address_ field is defined.
 ```toml
 [host.ec2.myec2host]
   private = true      # Connect to the private IP address of this EC2 host
