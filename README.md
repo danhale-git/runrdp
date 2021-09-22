@@ -9,87 +9,157 @@ RunRDP is a tool for launching MS RDP sessions from the command line based on a 
 
 ## Features
 * SSH tunnel (SSH port forwarding) and proxy support
-* Thycotic Secret Server credential storage
-* AWS Secrets Manager credentials storage
+* Remote Secret Store integration
+    * Thycotic Secret Server
+    * AWS Secrets Manager
 * AWS EC2 integration
-    * Define instances by inclusive/exclusive tag set or instance ID
-    * AWS authentication from shared credentials file
+    * Identify instances by ID or tag filter
+    * Authenticate using shared credentials
     * EC2 _Get Password_ for RDP authentication
 -------
 # Configuration Reference
 
-Configuration is in TOML format. All config entries consist of a heading and set of key/value assignments.
-Entries take the format:
-```
-[<config type>[.sub type].<name>]
-stringkey   = "value"
-intkey      = 0
-boolkey     = false
-```
-
-Not all config types have sub types. `<name>` is the label chosen and referenced by the user.
-
-### [settings]
-Settings are the RDP session settings, mostly relating to window size. Naming an entry `[settings.default]` will make it the default for all hosts that don't explicitly reference another settings entry.
+Configuration is in TOML format. All config objects consist of a heading and key/value pairs:
 ```toml
-[settings.mysettings]
-height      = 800   # Height of the window in pixels
-width       = 600   # Width of the window in pixels
-fullscreen  = false # Start the session in full-screen mode (might still start in full-screen if false)
-span        = false # Span multiple monitors with the setting
+# Format
+[<config type>[.sub type].<name>]
+  string   = "abc"
+  int      = 0
+  bool     = false
+```
+`<name>` is the user defined label used to reference the object.
+```toml
+# Example
+[host.ec2.myhost]
+  getcred = true    
+  id = "i-abcde1234"
 ```
 
-## Hosts
+# Hosts
+Hosts are remote computers. The label given to a host configuration object is used on the command line when connecting.
+```toml
+[host.<type>.myhost]
+  field = <value>
+  ... ...
+```
+```bash
+$ runrdp myhost
+```
 
-#### Global Fields
-Global fields may be defined for hosts of any sub type (`[host.<sub type>.myhost]`) and will override values given by that host sub type. For example the EC2 sub type obtains the IP address from AWS. The `address` global field would override that IP. 
+## References To Other Objects 
+Hosts commonly reference other configuration objects such as credentials or RDP settings.
+
+### cred
+Credentials used for RDP authentication.
+```toml
+[host.<type>.myhost]
+  cred = "mycred"
+
+[cred.<type>.mycred]
+  ... ...
+```
+
+### proxy
+Another host configuration for a computer which is proxying RDP connections.
+```toml
+### proxy
+[host.<type>.myhost]
+  proxy = "myproxyhost"
+
+[host.<type>.myproxyhost]
+  ... ...
+```
+
+### settings
+RDP session settings, mostly relating to window size. Naming an entry `[settings.default]` will make it the default for all hosts that don't explicitly reference another settings entry.
+```toml
+[host.<type>.myhost]
+  settings = "mysettings"
+
+[settings.mysettings]
+  height      = 800   # Height of the window in pixels
+  width       = 600   # Width of the window in pixels
+  fullscreen  = false # Start the session in full-screen mode (might still start in full-screen if false)
+  span        = false # Span multiple monitors with the setting
+```
+
+### tunnel
+An intermediate host used for SSH forwarding.
+```toml
+[host.<type>.myhost]
+  mytunnel = "mytunnel"
+
+[tunnel.mytunnel]
+  host = "myhost"                 # Reference to a host config object used as the intermediate forwarding host
+  localport = "3390"              # Port to connect to locally over localhost
+  key = "C:/Users/me/.ssh/key"    # Full path to the SSH key used for authentication
+  user = "ubuntu"                 # SSH Username for authentication
+```
+
+## Literal Global Fields
+These take precedence when conflicting with another configuration field.
 ```toml
 [host.<any host type>.myhost]
-cred        = "mycred"          # Reference to a cred config entry used to authenticate (e.g. [cred.thycotic.mycred])
-proxy       = "myproxy"         # Reference to a host config entry
-address     = "1.2.3.4"         # Literal address for the RDP endpoint
-port        = "1234"            # Literal port for the RDP endpoint
-username    = "Administrator"   # Literal username for RDP authentication
-tunnel      = "mytunnel"        # Reference to a tunnel config entry used to start an SSH tunnel (e.g. [cred.tunnel.mytunnel])
-settings    = "mysettings"      # Reference to a settings config entry to define RDP settings (e.g. [settings.mysettings])
+  # Literal values which take precedence in the configuration
+  address     = "1.2.3.4"         # Address for the RDP endpoint
+  port        = "1234"            # Port for the RDP endpoint
+  username    = "Administrator"   # Username for RDP authentication
 ```
 
-### [host.basic]
-Basic does not have any fields, only global fields may be defined. A literal address must be given in order to connect to a host.
+## Host Types
+Host types offer specific functionality with the exception of the basic host type which only uses global fields.
+
+### host.basic
+Basic does not have any fields, only global fields may be defined. A literal address is required.
 ```toml
 [host.basic.mybasichost]
-address = "1.3.4.5" # This is a global field (see Global Fields), defined here as an example
+  address = "1.3.4.5" # This is a global field (see Global Fields), defined here as an example
 ```
 
-### [host.ec2]
-
+### host.ec2
+EC2 instance to connect to by getting it's address from the AWS API. Either an ID or filterJSON is required unless the global _address_ field is defined.
 ```toml
 [host.ec2.myec2host]
-private = true      # Connect to the private IP address of this EC2 host
-getcred = true      # Call the AWS EC2 _Get Password_ feature to get credentials for RDP authentication
-id = "i-abcde1234"  # Locate the EC2 host by instance ID
-profile = "default" # AWS Shared Credentials profile to use for authentication
-region = "eu-west"  # AWS region in which to operate
+  private = true      # Connect to the private IP address of this EC2 host
+  getcred = true      # Call the AWS EC2 _Get Password_ feature to get credentials for RDP authentication
+  id = "i-abcde1234"  # Locate the EC2 host by instance ID
+  profile = "default" # AWS Shared Credentials profile to use for authentication
+  region = "eu-west"  # AWS region in which to operate
 
-includetags = ["Name;rdp-target","env;dev"] # Locate the EC2 host by filtering for these tags
-excludetags = ["env;prod"]                  # Filter out any hosts with these tags
+  # https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html#options
+  filterjson = """
+      [
+        {
+          "Name": "tag:Name",
+          "Values": ["rdp-target"]
+        }
+      ]
+      """
 ```
 
+## Credential Types
 
+### cred.thycotic
+Retrieve a secret based on its ID. The secret being retrieved from Thycotic must have _Username_ and _Password_ fields.
+```toml
+[cred.thycotic.mycred]
+  secretid = "12345"
 
-// EC2 defines an AWS EC2 instance to connect to by getting it's address from the AWS API.
-type EC2 struct {
-Private     bool
-GetCred     bool
-ID          string
-Profile     string
-Region      string
-IncludeTags []string
-ExcludeTags []string
+# This object must be defined to use thycotic
+[thycotic.settings]
+  thycotic-url = "testthycotic-url"         # URL of the Thycotic service
+  thycotic-domain = "testthycotic-domain"   # Optional Active Directory domain name
+```
 
-	svc ec2iface.EC2API
-}
-
+### cred.awssm
+Retrieve a username and password from AWS Secrets Manager. The _username_ and _password_ fields must be the ID of AWS Secrets Manager secrets of type string.
+```toml
+[cred.awssm.mycred]
+  usernameid = "MyUsername" # The username to authenticate with
+  passwordid = "MyPassword" # The password to authenticate with
+  region = "eu-west-2"      # If omitted the profile default region will be used
+  profile = "dev"
+```
 _______
 ## Configuration Guide
 
