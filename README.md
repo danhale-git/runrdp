@@ -20,9 +20,9 @@ RunRDP is a tool for launching MS RDP sessions from the command line based on a 
 # Configuration Reference
 
 Configuration is in TOML format. All config objects consist of a heading and key/value pairs:
-```toml
+```
 # Format
-[<config type>[.sub type].<name>]
+[<config type>[.<sub type>].<name>]
   string   = "abc"
   int      = 0
   bool     = false
@@ -39,8 +39,7 @@ Configuration is in TOML format. All config objects consist of a heading and key
 Hosts are remote computers. The label given to a host configuration object is used on the command line when connecting.
 ```toml
 [host.<type>.myhost]
-  field = <value>
-  ... ...
+  field = "value"
 ```
 ```bash
 $ runrdp myhost
@@ -56,7 +55,6 @@ Credentials used for RDP authentication.
   cred = "mycred"
 
 [cred.<type>.mycred]
-  ... ...
 ```
 
 ### proxy
@@ -67,7 +65,6 @@ Another host configuration for a computer which is proxying RDP connections.
   proxy = "myproxyhost"
 
 [host.<type>.myproxyhost]
-  ... ...
 ```
 
 ### settings
