@@ -13,7 +13,10 @@ func SecretsManagerStruct() interface{} {
 
 // Validate returns an error if a config field is invalid.
 func (s *SecretsManager) Validate() error {
-	// Update test when implemented
+	if s.UsernameID == "" && s.PasswordID == "" {
+		return fmt.Errorf("either usernameid or passwordid must be set")
+	}
+
 	return nil
 }
 
@@ -25,16 +28,19 @@ type SecretsManager struct {
 	Region     string
 }
 
-// Retrieve returns the values for the configured Secrets Manager keys.
+// Retrieve returns the values for the configured Secrets Manager key or empty strings if the keys were not set.
 func (s *SecretsManager) Retrieve() (string, string, error) {
 	svc := secretsmanager.NewSession(s.Profile, s.Region)
 
-	username, err := secretsmanager.Get(svc, s.UsernameID)
+	username, password := "", ""
+	var err error
+
+	username, err = secretsmanager.Get(svc, s.UsernameID)
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving username: %s", err)
 	}
 
-	password, err := secretsmanager.Get(svc, s.PasswordID)
+	password, err = secretsmanager.Get(svc, s.PasswordID)
 	if err != nil {
 		return "", "", fmt.Errorf("retrieving password: %s", err)
 	}

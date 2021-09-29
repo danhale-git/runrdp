@@ -27,19 +27,18 @@ Configuration is in TOML format. All config objects consist of a heading and key
   int      = 0
   bool     = false
 ```
-`<name>` is the user defined label used to reference the object.
+`<name>` is the user defined label used to reference the object. Below is a host of type EC2.
 ```toml
 # Example
 [host.ec2.myhost]
-  getcred = true    
   id = "i-abcde1234"
 ```
 
 # Hosts
 Hosts are remote computers. The label given to a host configuration object is used on the command line when connecting.
 ```toml
-[host.<type>.myhost]
-  field = "value"
+[host.ec2.myhost]
+  id = "i-abcde1234"
 ```
 ```bash
 $ runrdp myhost
@@ -49,50 +48,53 @@ $ runrdp myhost
 Hosts commonly reference other configuration objects such as credentials or RDP settings.
 
 ### cred
-Credentials used for RDP authentication.
+Refers to a Credentials object used for RDP authentication.
 ```toml
-[host.<type>.myhost]
-  cred = "mycred"
-
 [cred.<type>.mycred]
-# See Credential Types section below
+    # See Credential Types section below
+
+[host.ec2.myhost]
+    cred = "mycred"
+    id = "i-abcde1234"
 ```
 
 ### proxy
-Another host configuration for a computer which is proxying RDP connections.
+Refers to another host configuration for a computer which is proxying RDP connections.
 ```toml
 ### proxy
-[host.<type>.myhost]
-  proxy = "myproxyhost"
-
 [host.<type>.myproxyhost]
-# See Host Types section below
+    # See Host Types section below
+
+[host.ec2.myhost]
+    proxy = "myproxyhost"
+    id = "i-abcde1234"
 ```
 
 ### settings
-RDP session settings, mostly relating to window size. Naming an entry `[settings.default]` will make it the default for all hosts that don't explicitly reference another settings entry.
+Refers to an RDP session settings object to configure windows size. Naming a settings object `[settings.default]` will make it the default for hosts omitting the settings field. System defaults are used if no settings are defined.
 ```toml
-[host.<type>.myhost]
-  settings = "mysettings"
-
 [settings.mysettings]
   height      = 800   # Height of the window in pixels
   width       = 600   # Width of the window in pixels
   fullscreen  = false # Start the session in full-screen mode (might still start in full-screen if false)
   span        = false # Span multiple monitors with the setting
+
+[host.ec2.myhost]
+  settings = "mysettings"
+  id = "i-abcde1234"
 ```
 
 ### tunnel
-An intermediate host used for SSH forwarding.
+An intermediate host used for SSH forwarding. All fields must be defined.
 ```toml
-[host.<type>.myhost]
-  mytunnel = "mytunnel"
-
 [tunnel.mytunnel]
   host = "myhost"                 # Reference to a host config object used as the intermediate forwarding host
   localport = "3390"              # Port to connect to locally over localhost
   key = "C:/Users/me/.ssh/key"    # Full path to the SSH key used for authentication
   user = "ubuntu"                 # SSH Username for authentication
+
+[host.<type>.myhost]
+  mytunnel = "mytunnel"
 ```
 
 ## Literal Global Fields
