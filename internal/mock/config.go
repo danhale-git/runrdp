@@ -12,13 +12,6 @@ const Config = `[cred.awssm.awssmtest]
     region = "eu-west-2"
     profile = "default"
 
-[thycotic.settings]
-thycotic-url = "testthycotic-url"
-thycotic-domain = "testthycotic-domain"
-
-[cred.thycotic.thycotictest]
-	secretid = 1234
-
 [host.awsec2.awsec2test]
     id = "i-12345abc"
 	tunnel = "mytunnel"
@@ -35,7 +28,6 @@ thycotic-domain = "testthycotic-domain"
       }
     ]
     """
-
 [host.basic.basictest]
 	cred = "global"
 	proxy = "global" 

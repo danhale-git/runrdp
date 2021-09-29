@@ -2,11 +2,8 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"testing"
-
-	"github.com/spf13/viper"
 
 	"github.com/danhale-git/runrdp/internal/config/creds"
 
@@ -33,23 +30,6 @@ func TestParseConfiguration(t *testing.T) {
 		checkFields(t, awssmtest)
 	} else {
 		t.Errorf("failed to get or convert type *creds.SecretsManager")
-	}
-
-	if thycotictest, ok := c.Creds["thycotictest"].(*creds.Thycotic); ok {
-		checkFields(t, thycotictest)
-	} else {
-		t.Errorf("unable to convert awsec2test to type *creds.Thycotic")
-	}
-
-	fmt.Println("object:", viper.GetStringMap("thycotic.settings"))
-
-	thyURL := viper.GetStringMap("thycotic.settings")["thycotic-url"]
-	if thyURL == "" {
-		t.Errorf("top level 'thycotic-url' config value is empty")
-	}
-
-	if thyURL != "testthycotic-url" {
-		t.Errorf("unexpected value for top level 'thycotic-url': expected 'testthycotic-url': got %s", thyURL)
 	}
 
 	settingstest := c.Settings["settingstest"]
