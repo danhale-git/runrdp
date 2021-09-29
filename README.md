@@ -9,10 +9,8 @@ RunRDP is a tool for launching MS RDP sessions from the command line based on a 
 
 ## Features
 * SSH tunnel (SSH port forwarding) and proxy support
-* Remote Secret Store integration
-    * Thycotic Secret Server
+* AWS integration
     * AWS Secrets Manager
-* AWS EC2 integration
     * Identify instances by ID or tag filter
     * Authenticate using shared credentials
     * EC2 _Get Password_ for RDP authentication
@@ -139,18 +137,6 @@ EC2 instance to connect to by getting its address from the AWS API. Either an ID
 ```
 
 ## Credential Types
-
-### cred.thycotic
-Retrieve a secret based on its ID. The secret being retrieved from Thycotic must have _Username_ and _Password_ fields.
-```toml
-[cred.thycotic.mycred]
-  secretid = "12345"
-
-# This object must be defined to use thycotic
-[thycotic.settings]
-  thycotic-url = "testthycotic-url"         # URL of the Thycotic service
-  thycotic-domain = "testthycotic-domain"   # Optional Active Directory domain name
-```
 
 ### cred.awssm
 Retrieve a username and password from AWS Secrets Manager. The _username_ and _password_ fields must be the ID of AWS Secrets Manager secrets of type string.

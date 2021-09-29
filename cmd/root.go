@@ -114,14 +114,6 @@ func rootCommand() *cobra.Command {
 		"Directory containing SSH keys.",
 	)
 
-	command.PersistentFlags().String("thycotic-url", "",
-		"URL for Thycotic Secret Server.",
-	)
-
-	command.PersistentFlags().String("thycotic-domain", "",
-		"Active Directory domain for Thycotic Secret Server.",
-	)
-
 	return command
 }
 
@@ -207,7 +199,8 @@ func connectToHost(host string) {
 	var tunnel *sshtun.SSHTun
 	t, ok := configuration.Tunnels[configuration.HostGlobals[host][hosts.GlobalTunnel.String()]]
 	if ok {
-		tunnel, err := sshTunnel(&t, address, port)
+		var err error
+		tunnel, err = sshTunnel(&t, address, port)
 		if err != nil {
 			log.Fatalf("opening ssh tunnel: %s", err)
 		}
